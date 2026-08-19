@@ -1,3 +1,6 @@
 name = "goalquestleague"
 pages_build_output_dir = "./dist"
 compatibility_date = "2026-08-19"
+[vars]
+VITE_SUPABASE_URL = "https://iztcajhknlctfgclqqri.supabase.co"
+VITE_SUPABASE_ANON_KEY = "sb_publishable_hJDk2UWZVDlDYqhouxBqeg_a-Kmex66"
