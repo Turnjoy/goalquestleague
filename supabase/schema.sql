@@ -16,6 +16,8 @@ create table if not exists public.profiles (
   gamertag text not null,
   full_name text,
   whatsapp_number text,
+  efootball_username text,
+  squad_name text,
   division text not null default 'Trial',
   is_admin boolean not null default false,
   is_approved boolean not null default false,
@@ -135,18 +137,16 @@ declare
 begin
   select catalog.name into target_division
   from public.division_catalog catalog
-  where catalog.is_open = true
-     or (select count(*) from public.profiles p
-         where p.division = catalog.name
-           and p.is_approved = true
-           and p.status = 'active'
-           and p.id <> player_id_input) < catalog.slot_limit
+  where catalog.slot_limit is null
+    or (select count(*) from public.profiles p
+        where p.division = catalog.name
+          and p.is_approved = true
+          and p.status = 'active'
+          and p.id <> player_id_input) < catalog.slot_limit
   order by catalog.sort_order
   limit 1;
 
-  if target_division is null then
-    raise exception 'No division capacity available';
-  end if;
+  target_division := coalesce(target_division, 'Trial');
 
   update public.profiles
   set division = target_division
@@ -191,30 +191,30 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  capacity int;
-  current_count int;
 begin
   if not public.is_admin() then
     raise exception 'Admin access required';
   end if;
 
-  select slot_limit into capacity from public.division_catalog where name = division_input;
+  perform 1 from public.division_catalog where name = division_input;
   if not found then
     raise exception 'Unknown division: %', division_input;
-  end if;
-
-  select count(*) into current_count
-  from public.profiles
-  where division = division_input and is_approved = true and status = 'active' and id <> player_id_input;
-
-  if capacity is not null and current_count >= capacity then
-    raise exception 'Division % is full', division_input;
   end if;
 
   update public.profiles set division = division_input where id = player_id_input;
   insert into public.admin_audit_logs (admin_id, action, target_player_id, notes)
   values (auth.uid(), 'reassign_player', player_id_input, 'Division: ' || division_input);
+end;
+$$;
+
+create or replace function public.admin_reassign_player(division_input text, player_id_input uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.admin_reassign_player(player_id_input, division_input);
 end;
 $$;
 
@@ -237,9 +237,48 @@ create trigger on_profile_approved
   after update of is_approved on public.profiles
   for each row execute function public.place_approved_player();
 
+create or replace function public.auto_create_player_standing()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.is_approved = true and new.status = 'active' then
+    if old.division is distinct from new.division then
+      delete from public.standings
+      where player_id = new.id
+        and season = extract(year from now())::int
+        and division = old.division;
+    end if;
+
+    insert into public.standings (division, season, player_id, player_name, team_name)
+    values (
+      new.division,
+      extract(year from now())::int,
+      new.id,
+      coalesce(new.gamertag, new.full_name, 'Player'),
+      coalesce(new.squad_name, 'eFootball Team')
+    )
+    on conflict (division, season, player_id) do update
+      set player_name = excluded.player_name,
+          team_name = excluded.team_name,
+          division = excluded.division;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_profile_division_assigned on public.profiles;
+create trigger on_profile_division_assigned
+  after update of division, is_approved on public.profiles
+  for each row execute function public.auto_create_player_standing();
+
+drop policy if exists "profiles_select_self_or_admin" on public.profiles;
 create policy "profiles_select_self_or_admin" on public.profiles
   for select using (id = auth.uid() or public.is_admin());
 
+drop policy if exists "profiles_insert_self" on public.profiles;
 create policy "profiles_insert_self" on public.profiles
   for insert with check (
     id = auth.uid()
@@ -248,28 +287,36 @@ create policy "profiles_insert_self" on public.profiles
     and status = 'active'
   );
 
+drop policy if exists "profiles_admin_update" on public.profiles;
 create policy "profiles_admin_update" on public.profiles
   for update using (public.is_admin()) with check (public.is_admin());
 
+drop policy if exists "fixtures_select_participant_or_admin" on public.fixtures;
 create policy "fixtures_select_participant_or_admin" on public.fixtures
   for select using (home_player_id = auth.uid() or away_player_id = auth.uid() or public.is_admin());
 
+drop policy if exists "fixtures_home_submit" on public.fixtures;
 create policy "fixtures_home_submit" on public.fixtures
   for update using (home_player_id = auth.uid() or away_player_id = auth.uid() or public.is_admin())
   with check (home_player_id = auth.uid() or away_player_id = auth.uid() or public.is_admin());
 
+drop policy if exists "fixtures_admin_insert" on public.fixtures;
 create policy "fixtures_admin_insert" on public.fixtures
   for insert with check (public.is_admin());
 
+drop policy if exists "standings_select_active" on public.standings;
 create policy "standings_select_active" on public.standings
   for select using (true);
 
+drop policy if exists "standings_admin_write" on public.standings;
 create policy "standings_admin_write" on public.standings
   for all using (public.is_admin()) with check (public.is_admin());
 
+drop policy if exists "audit_admin_select" on public.admin_audit_logs;
 create policy "audit_admin_select" on public.admin_audit_logs
   for select using (public.is_admin());
 
+drop policy if exists "audit_admin_insert" on public.admin_audit_logs;
 create policy "audit_admin_insert" on public.admin_audit_logs
   for insert with check (public.is_admin());
 
@@ -446,3 +493,15 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+insert into public.profiles (id, email, gamertag, division, is_approved, status)
+select
+  au.id,
+  au.email,
+  split_part(au.email, '@', 1),
+  'Trial',
+  false,
+  'active'::public.profile_status
+from auth.users au
+left join public.profiles p on p.id = au.id
+where p.id is null;
