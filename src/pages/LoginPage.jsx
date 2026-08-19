@@ -5,8 +5,9 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase.js';
 
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => localStorage.getItem('goalquest.rememberedEmail') || '');
   const [password, setPassword] = useState('');
+  const [rememberEmail, setRememberEmail] = useState(() => Boolean(localStorage.getItem('goalquest.rememberedEmail')));
   const [message, setMessage] = useState(searchParams.get('error') === 'unauthorized' ? 'Your account is not approved or active.' : '');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -50,6 +51,12 @@ export default function LoginPage() {
       return;
     }
 
+    if (rememberEmail) {
+      localStorage.setItem('goalquest.rememberedEmail', email);
+    } else {
+      localStorage.removeItem('goalquest.rememberedEmail');
+    }
+
     navigate(profile.is_admin ? '/admin' : '/dashboard', { replace: true });
   }
 
@@ -82,6 +89,15 @@ export default function LoginPage() {
               onChange={(event) => setPassword(event.target.value)}
               className="mt-1 w-full rounded border border-slate-300 px-3 py-2"
             />
+          </label>
+          <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+            <input
+              type="checkbox"
+              checked={rememberEmail}
+              onChange={(event) => setRememberEmail(event.target.checked)}
+              className="h-4 w-4 accent-pitch"
+            />
+            Remember email/username
           </label>
           <button
             type="submit"

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { isSupabaseConfigured, supabase } from '../lib/supabase.js';
 
 export default function RegisterPage() {
-  const [form, setForm] = useState({ email: '', password: '', gamertag: '', full_name: '', whatsapp_number: '' });
+  const [form, setForm] = useState({ email: '', password: '', gamertag: '', efootball_username: '', squad_name: '', full_name: '', whatsapp_number: '' });
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -30,6 +30,8 @@ export default function RegisterPage() {
         options: {
           data: {
             gamertag: form.gamertag,
+            efootball_username: form.efootball_username,
+            squad_name: form.squad_name,
             full_name: form.full_name,
             whatsapp_number: form.whatsapp_number,
           },
@@ -67,6 +69,8 @@ export default function RegisterPage() {
           {[
             ['full_name', 'Full name', 'text'],
             ['gamertag', 'Gamertag', 'text'],
+            ['efootball_username', 'eFootball username', 'text'],
+            ['squad_name', 'Squad / team', 'text'],
             ['whatsapp_number', 'WhatsApp number', 'tel'],
             ['email', 'Email', 'email'],
             ['password', 'Password', 'password'],

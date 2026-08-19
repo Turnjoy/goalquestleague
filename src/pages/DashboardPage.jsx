@@ -53,12 +53,15 @@ function DashboardContent() {
         <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
           <img src="/goalquest-logo.png" alt="GoalQuest League logo" className="mb-4 h-28 w-full rounded object-cover" />
           <p className="text-xs font-bold uppercase text-slate-500">Player profile</p>
-          <h1 className="mt-1 text-2xl font-black">{profile.gamertag || profile.full_name}</h1>
+          <h1 className="mt-1 text-2xl font-black">{profile.efootball_username || profile.gamertag || profile.full_name}</h1>
+          <p className="mt-1 text-sm font-semibold text-slate-600">{profile.squad_name || 'Independent player'}</p>
+          <span className="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs font-black text-emerald-800">Verified league profile</span>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <div><span className="font-bold text-slate-500">Division</span><div className="mt-1"><Badge tone={profile.division}>{profile.division}</Badge></div></div>
             <div><span className="font-bold text-slate-500">Rank</span><p className="mt-1 font-black">#{standing ? standing.rank ?? '-' : '-'}</p></div>
             <div><span className="font-bold text-slate-500">Penalty Points</span><p className="mt-1 font-black">{standing?.penalty_points ?? 0}</p></div>
             <div><span className="font-bold text-slate-500">Form</span><p className="mt-1 font-black">{standing?.form || '-'}</p></div>
+            <div><span className="font-bold text-slate-500">Record</span><p className="mt-1 font-black">{standing ? `${standing.won}W · ${standing.draw}D · ${standing.lost}L` : '-'}</p></div>
           </div>
         </div>
         <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">

@@ -86,7 +86,18 @@ export async function fetchPlayers(searchTerm = '') {
 }
 
 export async function updatePlayerApproval(playerId, isApproved) {
-  const { error } = await supabase.from('profiles').update({ is_approved: isApproved }).eq('id', playerId);
+  const { error } = await supabase.rpc('admin_approve_player', {
+    player_id_input: playerId,
+    approved_input: isApproved,
+  });
+  if (error) throw error;
+}
+
+export async function reassignPlayer(playerId, division) {
+  const { error } = await supabase.rpc('admin_reassign_player', {
+    player_id_input: playerId,
+    division_input: division,
+  });
   if (error) throw error;
 }
 

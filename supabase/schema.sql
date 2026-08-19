@@ -24,6 +24,31 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.division_catalog (
+  name text primary key,
+  sort_order int not null unique,
+  slot_limit int,
+  is_open boolean not null default false
+);
+
+insert into public.division_catalog (name, sort_order, slot_limit, is_open)
+values
+  ('Elite', 1, 20, false),
+  ('Premier', 2, 100, false),
+  ('Championship', 3, 100, false),
+  ('Challenger', 4, 100, false),
+  ('Contender', 5, 100, false),
+  ('Advanced', 6, 100, false),
+  ('Intermediate', 7, 100, false),
+  ('Foundation', 8, 100, false),
+  ('Development', 9, 100, false),
+  ('Rookie', 10, 80, false),
+  ('Trial', 11, null, true)
+on conflict (name) do update set
+  sort_order = excluded.sort_order,
+  slot_limit = excluded.slot_limit,
+  is_open = excluded.is_open;
+
 create table if not exists public.fixtures (
   id uuid primary key default gen_random_uuid(),
   division text not null,
@@ -77,6 +102,8 @@ create table if not exists public.admin_audit_logs (
 );
 
 alter table public.profiles enable row level security;
+alter table public.profiles add column if not exists efootball_username text;
+alter table public.profiles add column if not exists squad_name text;
 alter table public.fixtures enable row level security;
 alter table public.standings enable row level security;
 alter table public.admin_audit_logs enable row level security;
@@ -96,6 +123,119 @@ as $$
       and status = 'active'
   );
 $$;
+
+create or replace function public.assign_player_to_highest_available_division(player_id_input uuid)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_division text;
+begin
+  select catalog.name into target_division
+  from public.division_catalog catalog
+  where catalog.is_open = true
+     or (select count(*) from public.profiles p
+         where p.division = catalog.name
+           and p.is_approved = true
+           and p.status = 'active'
+           and p.id <> player_id_input) < catalog.slot_limit
+  order by catalog.sort_order
+  limit 1;
+
+  if target_division is null then
+    raise exception 'No division capacity available';
+  end if;
+
+  update public.profiles
+  set division = target_division
+  where id = player_id_input;
+
+  return target_division;
+end;
+$$;
+
+create or replace function public.admin_approve_player(player_id_input uuid, approved_input boolean)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  assigned_division text;
+begin
+  if not public.is_admin() then
+    raise exception 'Admin access required';
+  end if;
+
+  update public.profiles
+  set is_approved = approved_input,
+      status = case when approved_input then 'active'::public.profile_status else status end
+  where id = player_id_input;
+
+  if approved_input then
+    assigned_division := public.assign_player_to_highest_available_division(player_id_input);
+  end if;
+
+  insert into public.admin_audit_logs (admin_id, action, target_player_id, notes)
+  values (auth.uid(), case when approved_input then 'approve_player' else 'reject_player' end, player_id_input, coalesce(assigned_division, 'Approval removed'));
+
+  return assigned_division;
+end;
+$$;
+
+create or replace function public.admin_reassign_player(player_id_input uuid, division_input text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  capacity int;
+  current_count int;
+begin
+  if not public.is_admin() then
+    raise exception 'Admin access required';
+  end if;
+
+  select slot_limit into capacity from public.division_catalog where name = division_input;
+  if not found then
+    raise exception 'Unknown division: %', division_input;
+  end if;
+
+  select count(*) into current_count
+  from public.profiles
+  where division = division_input and is_approved = true and status = 'active' and id <> player_id_input;
+
+  if capacity is not null and current_count >= capacity then
+    raise exception 'Division % is full', division_input;
+  end if;
+
+  update public.profiles set division = division_input where id = player_id_input;
+  insert into public.admin_audit_logs (admin_id, action, target_player_id, notes)
+  values (auth.uid(), 'reassign_player', player_id_input, 'Division: ' || division_input);
+end;
+$$;
+
+create or replace function public.place_approved_player()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.is_approved = true and (old.is_approved is distinct from true) then
+    perform public.assign_player_to_highest_available_division(new.id);
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_profile_approved on public.profiles;
+create trigger on_profile_approved
+  after update of is_approved on public.profiles
+  for each row execute function public.place_approved_player();
 
 create policy "profiles_select_self_or_admin" on public.profiles
   for select using (id = auth.uid() or public.is_admin());
@@ -287,11 +427,13 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, email, gamertag, full_name, whatsapp_number)
+  insert into public.profiles (id, email, gamertag, efootball_username, squad_name, full_name, whatsapp_number)
   values (
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'gamertag', split_part(new.email, '@', 1)),
+    new.raw_user_meta_data->>'efootball_username',
+    new.raw_user_meta_data->>'squad_name',
     new.raw_user_meta_data->>'full_name',
     new.raw_user_meta_data->>'whatsapp_number'
   )

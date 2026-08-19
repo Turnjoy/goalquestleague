@@ -6,10 +6,12 @@ import {
   deductPlayerPoints,
   fetchDisputedFixtures,
   fetchPlayers,
+  reassignPlayer,
   resolveDispute,
   updatePlayerApproval,
   updatePlayerStatus,
 } from '../lib/leagueApi.js';
+import { DIVISION_NAMES } from '../lib/divisions.js';
 import { supabase } from '../lib/supabase.js';
 
 function AdminContent() {
@@ -130,7 +132,15 @@ function AdminContent() {
                     <p className="font-black">{player.gamertag || player.full_name}</p>
                     <p className="text-xs text-slate-500">{player.email}</p>
                   </td>
-                  <td className="px-3 py-3"><Badge tone={player.division}>{player.division}</Badge></td>
+                  <td className="px-3 py-3">
+                    <select
+                      value={player.division}
+                      onChange={(event) => run(() => reassignPlayer(player.id, event.target.value), `Player moved to ${event.target.value}.`)}
+                      className="rounded border border-slate-300 px-2 py-2 text-xs font-bold"
+                    >
+                      {DIVISION_NAMES.map((division) => <option key={division} value={division}>{division}</option>)}
+                    </select>
+                  </td>
                   <td className="px-3 py-3">{player.is_approved ? 'Yes' : 'No'}</td>
                   <td className="px-3 py-3"><Badge tone={player.status}>{player.status}</Badge></td>
                   <td className="px-3 py-3">

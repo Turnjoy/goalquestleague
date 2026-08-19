@@ -1,4 +1,4 @@
-import { Shield, Trophy } from 'lucide-react';
+import { LogIn, Shield, Trophy, UserPlus } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -32,7 +32,7 @@ export default function Navbar() {
         </div>
 
         <nav className="flex flex-wrap items-center gap-2">
-          {links.map((link) => (
+          {profile && links.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
@@ -58,13 +58,16 @@ export default function Navbar() {
               Admin
             </NavLink>
           )}
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="rounded border border-white/25 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10"
-          >
-            Sign Out
-          </button>
+          {profile ? (
+            <button type="button" onClick={handleSignOut} className="rounded border border-white/25 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10">
+              Sign Out
+            </button>
+          ) : (
+            <>
+              <NavLink to="/login" className="inline-flex items-center gap-2 rounded border border-white/25 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10"><LogIn className="h-4 w-4" /> Login</NavLink>
+              <NavLink to="/register" className="inline-flex items-center gap-2 rounded bg-gold px-3 py-2 text-sm font-black text-ink hover:bg-amber-400"><UserPlus className="h-4 w-4" /> Join League</NavLink>
+            </>
+          )}
         </nav>
       </div>
     </header>
