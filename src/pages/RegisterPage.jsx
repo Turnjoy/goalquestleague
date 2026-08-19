@@ -1,7 +1,7 @@
 import { UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase.js';
+import { isSupabaseConfigured, supabase } from '../lib/supabase.js';
 
 export default function RegisterPage() {
   const [form, setForm] = useState({ email: '', password: '', gamertag: '', full_name: '', whatsapp_number: '' });
@@ -14,21 +14,34 @@ export default function RegisterPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (!isSupabaseConfigured) {
+      setMessage('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Cloudflare Pages, then redeploy.');
+      return;
+    }
+
     setLoading(true);
     setMessage('');
 
-    const { data, error } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        data: {
-          gamertag: form.gamertag,
-          full_name: form.full_name,
-          whatsapp_number: form.whatsapp_number,
+    let result;
+    try {
+      result = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          data: {
+            gamertag: form.gamertag,
+            full_name: form.full_name,
+            whatsapp_number: form.whatsapp_number,
+          },
         },
-      },
-    });
+      });
+    } catch (error) {
+      setMessage('Could not reach Supabase. Check the deployed environment variables and your Supabase project URL.');
+      setLoading(false);
+      return;
+    }
 
+    const { error } = result;
     if (error) {
       setMessage(error.message);
       setLoading(false);

@@ -1,7 +1,7 @@
 import { LogIn } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '../lib/supabase.js';
+import { isSupabaseConfigured, supabase } from '../lib/supabase.js';
 
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
@@ -13,10 +13,24 @@ export default function LoginPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (!isSupabaseConfigured) {
+      setMessage('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Cloudflare Pages, then redeploy.');
+      return;
+    }
+
     setLoading(true);
     setMessage('');
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    let result;
+    try {
+      result = await supabase.auth.signInWithPassword({ email, password });
+    } catch (error) {
+      setMessage('Could not reach Supabase. Check the deployed environment variables and your Supabase project URL.');
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = result;
     if (error) {
       setMessage(error.message);
       setLoading(false);
