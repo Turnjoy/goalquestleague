@@ -1,6 +1,7 @@
-import { LogIn, Shield, Trophy, UserPlus } from 'lucide-react';
+import { LogIn, Moon, Shield, Sun, Trophy, UserPlus } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useTheme } from '../context/ThemeContext.jsx';
 
 const links = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -11,6 +12,7 @@ const links = [
 export default function Navbar() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const { dark, toggleTheme } = useTheme();
 
   async function handleSignOut() {
     await signOut();
@@ -32,6 +34,15 @@ export default function Navbar() {
         </div>
 
         <nav className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${dark ? 'light' : 'dark'} mode`}
+            className="inline-flex items-center gap-2 rounded border border-white/25 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10"
+          >
+            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {dark ? 'Light' : 'Dark'}
+          </button>
           {profile && links.map((link) => (
             <NavLink
               key={link.to}

@@ -9,7 +9,7 @@ export default function App() {
   const compact = authRoutes.includes(pathname);
 
   return (
-    <div className="min-h-screen bg-frost text-ink">
+    <div className="min-h-screen bg-frost text-ink transition-colors">
       {!compact && <Navbar />}
       <main className={compact ? '' : 'mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8'}>
         <Outlet />

@@ -11,6 +11,43 @@ html {
   background: #f5f8fb;
 }
 
+html.dark {
+  background: #07182f;
+}
+
+html.dark body {
+  background: #07182f;
+  color: #f8fafc;
+}
+
+html.dark .bg-frost {
+  background-color: #07182f;
+}
+
+html.dark .bg-white {
+  background-color: #102642;
+}
+
+html.dark .text-ink {
+  color: #f8fafc;
+}
+
+html.dark .text-slate-600,
+html.dark .text-slate-500,
+html.dark .text-slate-700 {
+  color: #cbd5e1;
+}
+
+html.dark .border-slate-200,
+html.dark .border-slate-300 {
+  border-color: #29415f;
+}
+
+html.dark .bg-slate-50,
+html.dark .bg-slate-100 {
+  background-color: #183451;
+}
+
 body {
   margin: 0;
   font-family:

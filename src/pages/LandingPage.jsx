@@ -1,4 +1,4 @@
-import { Download, LogIn, Trophy, UserPlus } from 'lucide-react';
+import { BadgeDollarSign, Download, Handshake, LogIn, Trophy, UserPlus, Verified } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DIVISIONS } from '../lib/divisions.js';
@@ -68,7 +68,6 @@ export default function LandingPage() {
             {[
               ['11', 'Official divisions'],
               ['1,000+', 'Upper-division slots'],
-              ['0', 'File uploads required'],
             ].map(([value, label]) => (
               <div key={label} className="border-l-4 border-gold bg-white/10 px-4 py-3 backdrop-blur">
                 <dt className="text-3xl font-black text-gold">{value}</dt>
@@ -109,6 +108,38 @@ export default function LandingPage() {
               </span>
             </button>
           ))}
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
+        <div className="mb-5">
+          <p className="text-sm font-black uppercase tracking-wide text-pitch">Built for momentum</p>
+          <h2 className="mt-1 text-3xl font-black">Grow &amp; Earn With Us</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          {[
+            [BadgeDollarSign, 'Play & Win Cash', 'Climb from Trial to Elite. Top players in each division compete for cash prize pools and sponsored rewards.'],
+            [Handshake, 'Sponsor & Host', 'Host custom tournaments or sponsor division prize pools with automated standings and tracking.'],
+            [Verified, 'Verifiable Standings', 'Automated match reporting, live leaderboards, and transparent dispute workflows.'],
+          ].map(([Icon, title, copy]) => (
+            <article key={title} className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+              <div className="flex h-11 w-11 items-center justify-center rounded bg-ink text-gold"><Icon className="h-6 w-6" /></div>
+              <h3 className="mt-4 text-xl font-black">{title}</h3>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{copy}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-4 rounded-md bg-navy px-6 py-7 text-white shadow-panel sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-black">Contact Us</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-200">Partnerships, inquiries, and player support.</p>
+          </div>
+          <a href="mailto:support@goalquestleague.com.ng" className="inline-flex w-fit items-center rounded bg-gold px-4 py-3 text-sm font-black text-ink hover:bg-amber-400">
+            support@goalquestleague.com.ng
+          </a>
         </div>
       </section>
     </div>
