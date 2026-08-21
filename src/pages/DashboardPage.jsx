@@ -51,7 +51,7 @@ function DashboardContent() {
     <div className="space-y-6">
       <section className="grid gap-4 lg:grid-cols-[1fr_2fr]">
         <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-          <img src="/goalquest-logo.png" alt="GoalQuest League logo" className="mb-4 h-28 w-full rounded object-cover" />
+          <img src="/goalquest-logo.webp" alt="GoalQuest League logo" className="mb-4 h-28 w-full rounded object-cover" />
           <p className="text-xs font-bold uppercase text-slate-500">Player profile</p>
           <h1 className="mt-1 text-2xl font-black">{profile.efootball_username || profile.gamertag || profile.full_name}</h1>
           <p className="mt-1 text-sm font-semibold text-slate-600">{profile.squad_name || 'Independent player'}</p>

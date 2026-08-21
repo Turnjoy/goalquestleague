@@ -58,7 +58,7 @@ export default function RegisterPage() {
     <section className="flex min-h-screen items-center justify-center bg-frost px-4 py-8">
       <form onSubmit={handleSubmit} className="w-full max-w-xl space-y-4 rounded-md border border-slate-200 bg-white p-6 shadow-panel">
         <div className="flex items-center gap-3">
-          <img src="/goalquest-logo.png" alt="GoalQuest League logo" className="h-16 w-24 rounded object-cover" />
+          <img src="/goalquest-logo.webp" alt="GoalQuest League logo" className="h-16 w-24 rounded object-cover" />
           <div>
             <h1 className="text-2xl font-black text-ink">Player registration</h1>
             <p className="text-sm font-semibold text-slate-600">GoalQuest League approval queue</p>

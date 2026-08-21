@@ -32,7 +32,7 @@ export default function LandingPage() {
     <div className="bg-frost">
       <section className="relative isolate min-h-[88vh] overflow-hidden bg-ink text-white">
         <img
-          src="/goalquest-logo.png"
+          src="/goalquest-logo.webp"
           alt="GoalQuest League crest"
           className="absolute inset-0 h-full w-full object-cover opacity-45"
         />

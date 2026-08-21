@@ -63,7 +63,7 @@ export default function LoginPage() {
   return (
     <section className="flex min-h-screen items-center justify-center bg-ink px-4 py-8">
       <div className="w-full max-w-md rounded-md bg-white shadow-panel">
-        <img src="/goalquest-logo.png" alt="GoalQuest League logo" className="h-52 w-full rounded-t-md object-cover" />
+        <img src="/goalquest-logo.webp" alt="GoalQuest League logo" className="h-52 w-full rounded-t-md object-cover" />
         <form onSubmit={handleSubmit} className="space-y-4 p-6">
           <div>
             <h1 className="text-2xl font-black text-ink">Sign in</h1>

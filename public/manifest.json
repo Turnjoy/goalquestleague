@@ -9,9 +9,9 @@
   "theme_color": "#07182f",
   "icons": [
     {
-      "src": "/goalquest-logo.png",
+      "src": "/goalquest-logo.webp",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/webp",
       "purpose": "any"
     }
   ]
