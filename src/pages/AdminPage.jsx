@@ -55,7 +55,7 @@ function GlowingBadge({ status, children }) {
 // Glassmorphic card container with proper theme separation
 function GlassCard({ children, className = '' }) {
   return (
-    <section className={`bg-white dark:bg-slate-900/70 backdrop-blur-md border border-slate-200 dark:border-slate-800 shadow-lg dark:shadow-2xl rounded-2xl p-6 ${className}`}>
+    <section className={`bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 shadow-lg dark:shadow-2xl rounded-2xl p-6 ${className}`}>
       {children}
     </section>
   );
@@ -81,7 +81,7 @@ function StyledSelect({ value, onChange, children, className = '', ...props }) {
     <select
       value={value}
       onChange={onChange}
-      className={`bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent rounded-xl p-2.5 text-sm font-bold transition-all duration-200 ${className}`}
+      className={`bg-white dark:bg-slate-900 dark:border-slate-700 text-slate-900 dark:text-white border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent rounded-xl p-2.5 text-sm font-bold transition-all duration-200 ${className}`}
       {...props}
     >
       {children}
@@ -123,7 +123,7 @@ function GradientButton({ children, onClick, variant = 'primary', className = ''
 // Tab navigation component
 function TabNav({ activeTab, setActiveTab, tabs }) {
   return (
-    <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-200 dark:border-slate-700 pb-4">
+    <div className="flex flex-wrap gap-2">
       {tabs.map((tab) => (
         <button
           key={tab.id}
@@ -132,7 +132,7 @@ function TabNav({ activeTab, setActiveTab, tabs }) {
           className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
             activeTab === tab.id
               ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
           }`}
         >
           {tab.icon}
@@ -158,7 +158,7 @@ function AdminContent() {
   const [reinstateModal, setReinstateModal] = useState({ open: false, playerId: null, newDivision: 'Trial' });
 
   const tabs = [
-    { id: 'fixtures', label: 'Auto-Fixtures', icon: <Zap className="h-4 w-4" /> },
+    { id: 'fixtures', label: 'Auto Fixtures', icon: <Zap className="h-4 w-4" /> },
     { id: 'fixture-management', label: 'Fixture Management', icon: <Calendar className="h-4 w-4" /> },
     { id: 'players', label: 'Player Desk', icon: <Crown className="h-4 w-4" /> },
     { id: 'disputes', label: 'Disputes', icon: <ShieldAlert className="h-4 w-4" /> },
@@ -275,7 +275,9 @@ function AdminContent() {
       )}
 
       {/* Tab Navigation */}
-      <TabNav activeTab={activeTab} setActiveTab={setActiveTab} tabs={tabs} />
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-2 shadow-lg dark:shadow-xl border border-slate-200 dark:border-slate-700">
+        <TabNav activeTab={activeTab} setActiveTab={setActiveTab} tabs={tabs} />
+      </div>
 
       {/* Tab Content */}
       {activeTab === 'fixtures' && (
@@ -300,7 +302,7 @@ function AdminContent() {
                 className="min-w-[200px]"
               >
                 {DIVISION_NAMES.map((division) => (
-                  <option key={division} value={division} className="dark:bg-slate-900 dark:text-white">{division}</option>
+                  <option key={division} value={division} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{division}</option>
                 ))}
               </StyledSelect>
             </div>
@@ -435,7 +437,7 @@ function AdminContent() {
                         className="text-xs"
                       >
                         {DIVISION_NAMES.map((division) => (
-                          <option key={division} value={division} className="dark:bg-slate-900 dark:text-white">{division}</option>
+                          <option key={division} value={division} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{division}</option>
                         ))}
                       </StyledSelect>
                     </td>
@@ -748,7 +750,7 @@ function AdminContent() {
                   className="w-full"
                 >
                   {DIVISION_NAMES.map((division) => (
-                    <option key={division} value={division} className="dark:bg-slate-900 dark:text-white">{division}</option>
+                    <option key={division} value={division} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{division}</option>
                   ))}
                 </StyledSelect>
               </div>
