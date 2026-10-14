@@ -74,3 +74,21 @@ a:focus-visible {
   background-color: #0f172a !important;
   color: #ffffff !important;
 }
+
+/* Select contrast overrides */
+select {
+  color: #0f172a !important; /* Crisp dark slate/black in Light Mode */
+  background-color: #ffffff !important;
+  color-scheme: light;
+}
+
+.dark select {
+  color: #ffffff !important; /* Pure white text in Dark Mode */
+  background-color: #0f172a !important;
+  color-scheme: dark;
+}
+
+.dark select option {
+  color: #ffffff !important;
+  background-color: #0f172a !important;
+}
