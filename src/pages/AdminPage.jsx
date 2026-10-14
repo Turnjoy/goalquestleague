@@ -302,7 +302,7 @@ function AdminContent() {
                 className="min-w-[200px]"
               >
                 {DIVISION_NAMES.map((division) => (
-                  <option key={division} value={division} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{division}</option>
+                  <option key={division} value={division}>{division}</option>
                 ))}
               </StyledSelect>
             </div>
@@ -437,7 +437,7 @@ function AdminContent() {
                         className="text-xs"
                       >
                         {DIVISION_NAMES.map((division) => (
-                          <option key={division} value={division} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{division}</option>
+                          <option key={division} value={division}>{division}</option>
                         ))}
                       </StyledSelect>
                     </td>
@@ -750,7 +750,7 @@ function AdminContent() {
                   className="w-full"
                 >
                   {DIVISION_NAMES.map((division) => (
-                    <option key={division} value={division} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{division}</option>
+                    <option key={division} value={division}>{division}</option>
                   ))}
                 </StyledSelect>
               </div>
