@@ -103,12 +103,26 @@ create table if not exists public.admin_audit_logs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.banned_users (
+  id uuid primary key default gen_random_uuid(),
+  player_id uuid not null references public.profiles(id) on delete cascade,
+  player_name text not null,
+  player_email text not null,
+  original_division text not null,
+  ban_reason text,
+  banned_by uuid references public.profiles(id),
+  banned_at timestamptz not null default now(),
+  notes text,
+  unique (player_id)
+);
+
 alter table public.profiles enable row level security;
 alter table public.profiles add column if not exists efootball_username text;
 alter table public.profiles add column if not exists squad_name text;
 alter table public.fixtures enable row level security;
 alter table public.standings enable row level security;
 alter table public.admin_audit_logs enable row level security;
+alter table public.banned_users enable row level security;
 
 create or replace function public.is_admin()
 returns boolean
@@ -320,6 +334,18 @@ drop policy if exists "audit_admin_insert" on public.admin_audit_logs;
 create policy "audit_admin_insert" on public.admin_audit_logs
   for insert with check (public.is_admin());
 
+drop policy if exists "banned_users_admin_select" on public.banned_users;
+create policy "banned_users_admin_select" on public.banned_users
+  for select using (public.is_admin());
+
+drop policy if exists "banned_users_admin_insert" on public.banned_users;
+create policy "banned_users_admin_insert" on public.banned_users
+  for insert with check (public.is_admin());
+
+drop policy if exists "banned_users_admin_delete" on public.banned_users;
+create policy "banned_users_admin_delete" on public.banned_users
+  for delete using (public.is_admin());
+
 create or replace function public.recalculate_standings_for_division(division_input text, season_input int)
 returns void
 language plpgsql
@@ -464,6 +490,239 @@ begin
 
   insert into public.admin_audit_logs (admin_id, action, target_player_id, notes)
   values (auth.uid(), 'deduct_points', player_id_input, 'Penalty points: ' || penalty_points_input);
+end;
+$$;
+
+create or replace function public.generate_round_robin_fixtures(p_league_id uuid, p_division text)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  players_record record;
+  players_array uuid[];
+  num_players int;
+  num_rounds int;
+  home_player_id uuid;
+  away_player_id uuid;
+  matchweek int;
+  fixture_count int;
+  season int;
+  team_name text;
+  player_name text;
+begin
+  if not public.is_admin() then
+    raise exception 'Admin access required';
+  end if;
+
+  season := extract(year from now())::int;
+
+  -- Get all active, approved players in the division
+  select array_agg(id) into players_array
+  from public.profiles
+  where division = p_division
+    and is_approved = true
+    and status = 'active';
+
+  players_array := coalesce(players_array, '{}'::uuid[]);
+  num_players := array_length(players_array, 1);
+
+  if num_players < 2 then
+    raise exception 'Need at least 2 players to generate fixtures';
+  end if;
+
+  -- Clear existing fixtures for this division
+  delete from public.fixtures
+  where division = p_division
+    and extract(year from coalesce(fixture_date, now()))::int = season;
+
+  -- Generate round-robin fixtures
+  num_rounds := num_players - 1;
+  fixture_count := 0;
+
+  for round_idx in 1..num_rounds loop
+    for pair_idx in 1..(num_players / 2) loop
+      home_player_id := players_array[pair_idx];
+      away_player_id := players_array[num_players - pair_idx + 1];
+
+      if home_player_id is not null and away_player_id is not null and home_player_id <> away_player_id then
+        select gamertag, squad_name into player_name, team_name
+        from public.profiles where id = home_player_id;
+
+        insert into public.fixtures (
+          division, matchweek, home_player_id, away_player_id,
+          home_team, away_team, status, fixture_date
+        ) values (
+          p_division, round_idx, home_player_id, away_player_id,
+          coalesce(team_name, 'eFootball Team'), coalesce(team_name, 'eFootball Team'),
+          'scheduled', now() + (round_idx * interval '7 days')
+        );
+
+        fixture_count := fixture_count + 1;
+      end if;
+    end loop;
+
+    -- Rotate players (keep first player fixed, rotate others)
+    if num_players > 2 then
+      players_array[2:num_players] := array_cat(
+        array[players_array[num_players]],
+        players_array[2:num_players-1]
+      );
+    end if;
+  end loop;
+
+  insert into public.admin_audit_logs (admin_id, action, target_player_id, notes)
+  values (auth.uid(), 'generate_fixtures', null, 'Division: ' || p_division || ', Fixtures: ' || fixture_count);
+
+  return json_build_object(
+    'success', true,
+    'division', p_division,
+    'fixtures_generated', fixture_count,
+    'players', num_players
+  );
+end;
+$$;
+
+create or replace function public.admin_reschedule_fixture(
+  fixture_id_input uuid,
+  new_date_input timestamptz
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  fixture_row public.fixtures%rowtype;
+begin
+  if not public.is_admin() then
+    raise exception 'Admin access required';
+  end if;
+
+  select * into fixture_row from public.fixtures where id = fixture_id_input;
+  if not found then
+    raise exception 'Fixture not found';
+  end if;
+
+  update public.fixtures
+  set fixture_date = new_date_input
+  where id = fixture_id_input;
+
+  insert into public.admin_audit_logs (admin_id, action, target_player_id, notes)
+  values (auth.uid(), 'reschedule_fixture', fixture_row.home_player_id,
+    'Fixture rescheduled to: ' || new_date_input);
+end;
+$$;
+
+create or replace function public.admin_permanent_ban_player(
+  player_id_input uuid,
+  ban_reason_input text,
+  notes_input text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  player_row public.profiles%rowtype;
+  season int;
+begin
+  if not public.is_admin() then
+    raise exception 'Admin access required';
+  end if;
+
+  select * into player_row from public.profiles where id = player_id_input;
+  if not found then
+    raise exception 'Player not found';
+  end if;
+
+  season := extract(year from now())::int;
+
+  -- Insert into banned_users table
+  insert into public.banned_users (
+    player_id, player_name, player_email, original_division,
+    ban_reason, banned_by, notes
+  ) values (
+    player_id_input,
+    coalesce(player_row.gamertag, player_row.full_name, 'Unknown'),
+    player_row.email,
+    player_row.division,
+    ban_reason_input,
+    auth.uid(),
+    notes_input
+  );
+
+  -- Delete from league_participants (standings)
+  delete from public.standings
+  where player_id = player_id_input
+    and season = season;
+
+  -- Cancel all their fixtures
+  update public.fixtures
+  set status = 'cancelled'
+  where (home_player_id = player_id_input or away_player_id = player_id_input)
+    and status in ('scheduled', 'pending_confirmation');
+
+  -- Update profile status to banned
+  update public.profiles
+  set status = 'banned', is_approved = false
+  where id = player_id_input;
+
+  insert into public.admin_audit_logs (admin_id, action, target_player_id, notes)
+  values (auth.uid(), 'permanent_ban', player_id_input,
+    'Reason: ' || coalesce(ban_reason_input, 'Not specified'));
+end;
+$$;
+
+create or replace function public.admin_lift_ban(
+  player_id_input uuid,
+  new_division_input text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  banned_row public.banned_users%rowtype;
+begin
+  if not public.is_admin() then
+    raise exception 'Admin access required';
+  end if;
+
+  select * into banned_row from public.banned_users where player_id = player_id_input;
+  if not found then
+    raise exception 'Player is not in banned users table';
+  end if;
+
+  -- Remove from banned_users
+  delete from public.banned_users where player_id = player_id_input;
+
+  -- Update profile status and division
+  update public.profiles
+  set status = 'active',
+      is_approved = true,
+      division = coalesce(new_division_input, banned_row.original_division)
+  where id = player_id_input;
+
+  -- Recreate standing entry
+  insert into public.standings (division, season, player_id, player_name, team_name)
+  values (
+    coalesce(new_division_input, banned_row.original_division),
+    extract(year from now())::int,
+    player_id_input,
+    banned_row.player_name,
+    'eFootball Team'
+  )
+  on conflict (division, season, player_id) do update
+    set player_name = excluded.player_name,
+        team_name = excluded.team_name;
+
+  insert into public.admin_audit_logs (admin_id, action, target_player_id, notes)
+  values (auth.uid(), 'lift_ban', player_id_input,
+    'Reinstated to division: ' || coalesce(new_division_input, banned_row.original_division));
 end;
 $$;
 

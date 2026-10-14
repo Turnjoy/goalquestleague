@@ -115,3 +115,55 @@ export async function deductPlayerPoints(playerId, division, season, amount) {
   });
   if (error) throw error;
 }
+
+export async function generateFixtures(leagueId, division) {
+  const { data, error } = await supabase.rpc('generate_round_robin_fixtures', {
+    p_league_id: leagueId,
+    p_division: division,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function rescheduleFixture(fixtureId, newDate) {
+  const { error } = await supabase.rpc('admin_reschedule_fixture', {
+    fixture_id_input: fixtureId,
+    new_date_input: newDate,
+  });
+  if (error) throw error;
+}
+
+export async function permanentBanPlayer(playerId, banReason, notes) {
+  const { error } = await supabase.rpc('admin_permanent_ban_player', {
+    player_id_input: playerId,
+    ban_reason_input: banReason,
+    notes_input: notes,
+  });
+  if (error) throw error;
+}
+
+export async function liftBan(playerId, newDivision) {
+  const { error } = await supabase.rpc('admin_lift_ban', {
+    player_id_input: playerId,
+    new_division_input: newDivision,
+  });
+  if (error) throw error;
+}
+
+export async function fetchBannedUsers() {
+  const { data, error } = await supabase
+    .from('banned_users')
+    .select('*')
+    .order('banned_at', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchAllFixtures() {
+  const { data, error } = await supabase
+    .from('fixtures')
+    .select('*')
+    .order('fixture_date', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
