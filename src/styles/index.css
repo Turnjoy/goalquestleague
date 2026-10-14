@@ -68,3 +68,9 @@ a:focus-visible {
   outline: 3px solid #d7b562;
   outline-offset: 2px;
 }
+
+/* Dark mode select option fix for mobile readability */
+.dark select option {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+}
