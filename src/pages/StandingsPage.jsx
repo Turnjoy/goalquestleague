@@ -8,17 +8,23 @@ function StandingsContent() {
   const { profile } = useAuth();
   const [division, setDivision] = useState(profile.division);
   return (
-    <section className="space-y-4">
+    <section className="space-y-6">
       <div>
-        <h1 className="text-3xl font-black">Standings</h1>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <p className="text-sm font-semibold text-slate-600">Live division table</p>
-          <select value={division} onChange={(event) => setDivision(event.target.value)} className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-bold">
-            {DIVISION_NAMES.map((name) => <option key={name} value={name}>{name}</option>)}
+        <h1 className="text-3xl font-black text-slate-900 dark:text-white">Standings</h1>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Live division table</p>
+          <select 
+            value={division} 
+            onChange={(event) => setDivision(event.target.value)} 
+            className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-500"
+          >
+            {DIVISION_NAMES.map((name) => <option key={name} value={name} className="dark:bg-slate-900 dark:text-white">{name}</option>)}
           </select>
         </div>
       </div>
-      <StandingsTable division={division} />
+      <div className="overflow-x-auto w-full">
+        <StandingsTable division={division} />
+      </div>
     </section>
   );
 }

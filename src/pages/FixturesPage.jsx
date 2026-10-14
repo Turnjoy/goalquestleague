@@ -34,12 +34,12 @@ function FixturesContent() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-6">
       <div>
-        <h1 className="text-3xl font-black">Fixtures</h1>
-        <p className="mt-1 text-sm font-semibold text-slate-600">Host submits. Away confirms or disputes. Evidence stays external.</p>
+        <h1 className="text-3xl font-black text-slate-900 dark:text-white">Fixtures</h1>
+        <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-400">Host submits. Away confirms or disputes. Evidence stays external.</p>
       </div>
-      {message && <div className="rounded border border-slate-200 bg-white px-3 py-2 text-sm font-semibold shadow-sm">{message}</div>}
+      {message && <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-300 shadow-lg dark:shadow-xl">{message}</div>}
       <div className="grid gap-4 lg:grid-cols-2">
         {fixtures.map((fixture) => (
           <FixtureCard
@@ -52,7 +52,7 @@ function FixturesContent() {
           />
         ))}
       </div>
-      {fixtures.length === 0 && <div className="rounded-md bg-white p-8 text-center text-slate-500 shadow-panel">No fixtures assigned yet.</div>}
+      {fixtures.length === 0 && <div className="rounded-xl bg-white dark:bg-slate-900 p-8 text-center text-slate-500 dark:text-slate-400 shadow-lg dark:shadow-xl border border-slate-200 dark:border-slate-700">No fixtures assigned yet.</div>}
     </section>
   );
 }
