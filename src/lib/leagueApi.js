@@ -13,7 +13,7 @@ export async function fetchMyFixtures(userId) {
 export async function fetchStandings(division) {
   let query = supabase
     .from('standings')
-    .select('*')
+    .select('*, profiles!inner(is_admin)')
     .order('points', { ascending: false })
     .order('goal_difference', { ascending: false })
     .order('goals_for', { ascending: false });
@@ -21,7 +21,10 @@ export async function fetchStandings(division) {
   if (division) query = query.eq('division', division);
   const { data, error } = await query;
   if (error) throw error;
-  return data ?? [];
+
+  // Filter out admin users from standings
+  const filteredData = (data ?? []).filter(row => !row.profiles.is_admin);
+  return filteredData;
 }
 
 export async function submitScore(fixture, homeScore, awayScore) {

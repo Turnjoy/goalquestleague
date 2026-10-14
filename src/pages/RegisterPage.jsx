@@ -75,14 +75,14 @@ export default function RegisterPage() {
             ['email', 'Email', 'email'],
             ['password', 'Password', 'password'],
           ].map(([field, label, type]) => (
-            <label key={field} className={field === 'password' ? 'block text-sm font-bold text-slate-700 sm:col-span-2' : 'block text-sm font-bold text-slate-700'}>
+            <label key={field} className={field === 'password' ? 'block text-sm font-bold text-slate-700 dark:text-slate-300 sm:col-span-2' : 'block text-sm font-bold text-slate-700 dark:text-slate-300'}>
               {label}
               <input
                 type={type}
                 required
                 value={form[field]}
                 onChange={(event) => updateField(field, event.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder={type === 'email' ? 'your@email.com' : type === 'password' ? '••••••••' : `Enter ${label.toLowerCase()}`}
               />
             </label>
