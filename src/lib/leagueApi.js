@@ -13,7 +13,7 @@ export async function fetchMyFixtures(userId) {
 export async function fetchStandings(division) {
   let query = supabase
     .from('standings')
-    .select('*, profiles!inner(is_admin)')
+    .select('*, profiles!inner(is_admin, gamertag)')
     .order('points', { ascending: false })
     .order('goal_difference', { ascending: false })
     .order('goals_for', { ascending: false });
@@ -22,8 +22,13 @@ export async function fetchStandings(division) {
   const { data, error } = await query;
   if (error) throw error;
 
-  // Filter out admin users from standings
-  const filteredData = (data ?? []).filter(row => !row.profiles.is_admin);
+  // Filter out admin users from standings and use gamertag as team name
+  const filteredData = (data ?? [])
+    .filter(row => !row.profiles.is_admin)
+    .map(row => ({
+      ...row,
+      team_name: row.profiles.gamertag || row.team_name, // Use gamertag for team display
+    }));
   return filteredData;
 }
 

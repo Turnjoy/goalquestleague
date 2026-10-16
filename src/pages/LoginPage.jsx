@@ -109,9 +109,10 @@ export default function LoginPage() {
             <LogIn className="h-4 w-4" />
             {loading ? 'Signing In...' : 'Sign In'}
           </button>
-          <p className="text-center text-sm text-slate-600">
-            New player? <Link className="font-bold text-pitch" to="/register">Register for approval</Link>
-          </p>
+          <div className="flex items-center justify-between text-sm text-slate-600">
+            <Link className="font-bold text-pitch hover:underline" to="/forgot-password">Forgot password?</Link>
+            <Link className="font-bold text-pitch" to="/register">Register for approval</Link>
+          </div>
           <p className="pt-2 text-center text-xs font-semibold text-slate-500">© GoalQuest League — Powered by Turnjoy Innovation Services</p>
         </form>
       </div>
