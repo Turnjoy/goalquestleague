@@ -175,3 +175,37 @@ export async function fetchAllFixtures() {
   if (error) throw error;
   return data ?? [];
 }
+
+export async function fetchUserSquad(userId) {
+  const { data, error } = await supabase
+    .from('squad_rosters')
+    .select('*')
+    .eq('user_id', userId)
+    .order('player_rating', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function submitSquad(userId, squadData) {
+  const { error } = await supabase
+    .from('squad_rosters')
+    .insert(squadData.map(player => ({
+      user_id: userId,
+      player_name: player.player_name.trim(),
+      player_rating: parseInt(player.player_rating),
+      is_initial: true,
+      added_via: 'initial'
+    })));
+  if (error) throw error;
+}
+
+export async function lockUserSquad(userId) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      squad_locked: true,
+      initial_squad_submitted_at: new Date().toISOString()
+    })
+    .eq('id', userId);
+  if (error) throw error;
+}

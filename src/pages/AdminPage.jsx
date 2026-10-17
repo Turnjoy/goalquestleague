@@ -1,4 +1,4 @@
-import { Ban, Calendar, Check, Clock, RotateCcw, Search, ShieldAlert, Trophy, UserX, Zap, Crown, Flame, Skull, Sparkles } from 'lucide-react';
+import { Ban, Calendar, Check, Clock, RotateCcw, Search, ShieldAlert, Trophy, UserX, Zap, Crown, Flame, Skull, Sparkles, CalendarDays } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Badge from '../components/Badge.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
@@ -156,10 +156,14 @@ function AdminContent() {
   const [rescheduleModal, setRescheduleModal] = useState({ open: false, fixtureId: null, newDate: '' });
   const [banModal, setBanModal] = useState({ open: false, playerId: null, reason: '', notes: '' });
   const [reinstateModal, setReinstateModal] = useState({ open: false, playerId: null, newDivision: 'Trial' });
+  const [seasonStartDate, setSeasonStartDate] = useState('');
+  const [calendarPreview, setCalendarPreview] = useState(null);
+  const [calendarLoading, setCalendarLoading] = useState(false);
 
   const tabs = [
     { id: 'fixtures', label: 'Auto Fixtures', icon: <Zap className="h-4 w-4" /> },
     { id: 'fixture-management', label: 'Fixture Management', icon: <Calendar className="h-4 w-4" /> },
+    { id: 'season-calendar', label: 'Season Calendar', icon: <CalendarDays className="h-4 w-4" /> },
     { id: 'players', label: 'Player Desk', icon: <Crown className="h-4 w-4" /> },
     { id: 'disputes', label: 'Disputes', icon: <ShieldAlert className="h-4 w-4" /> },
     { id: 'banned', label: 'Banned Desk', icon: <Skull className="h-4 w-4" /> },
@@ -382,6 +386,178 @@ function AdminContent() {
               <p className="text-sm font-semibold">No fixtures found in the system</p>
             </div>
           )}
+        </GlassCard>
+      )}
+
+      {activeTab === 'season-calendar' && (
+        <GlassCard>
+          <div className="mb-6 flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl">
+              <CalendarDays className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-black bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
+                Season Calendar Generator
+              </h2>
+              <p className="text-xs text-slate-600 dark:text-slate-400">Automated season scheduling with transfer windows</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="flex flex-wrap gap-4 items-end">
+              <div className="flex-1 min-w-[250px]">
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Select Division</label>
+                <StyledSelect
+                  value={selectedDivision}
+                  onChange={(e) => setSelectedDivision(e.target.value)}
+                  className="w-full"
+                >
+                  {DIVISION_NAMES.map((division) => (
+                    <option key={division} value={division}>{division}</option>
+                  ))}
+                </StyledSelect>
+              </div>
+              <div className="flex-1 min-w-[250px]">
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Season Start Date</label>
+                <StyledInput
+                  type="date"
+                  value={seasonStartDate}
+                  onChange={(e) => setSeasonStartDate(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <GradientButton
+                variant="info"
+                onClick={async () => {
+                  if (!seasonStartDate) {
+                    setMessage('Please select a season start date', 'error');
+                    return;
+                  }
+                  setCalendarLoading(true);
+                  try {
+                    const { data, error } = await supabase.rpc('calculate_season_calendar', {
+                      division_input: selectedDivision,
+                      season_start_date_input: seasonStartDate
+                    });
+                    if (error) throw error;
+                    setCalendarPreview(data);
+                    setMessage('Calendar calculated successfully. Review below before finalizing.', 'success');
+                  } catch (error) {
+                    setMessage(error.message || 'Failed to calculate calendar', 'error');
+                  } finally {
+                    setCalendarLoading(false);
+                  }
+                }}
+                disabled={calendarLoading}
+              >
+                {calendarLoading ? 'Calculating...' : 'Calculate Calendar'}
+              </GradientButton>
+            </div>
+
+            {calendarPreview && (
+              <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
+                <h3 className="text-lg font-black text-slate-900 dark:text-white mb-4">Calendar Preview</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Season Start Date</p>
+                    <p className="font-bold text-slate-900 dark:text-white">{calendarPreview.season_start_date}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Season End Date</p>
+                    <p className="font-bold text-slate-900 dark:text-white">{calendarPreview.season_end_date}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Pre-Season Window</p>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      {calendarPreview.pre_season_window_start} to {calendarPreview.pre_season_window_end}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Mid-Season Window</p>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      {calendarPreview.mid_season_window_start} to {calendarPreview.mid_season_window_end}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Total Fixtures</p>
+                    <p className="font-bold text-slate-900 dark:text-white">{calendarPreview.total_fixtures}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Expected Duration</p>
+                    <p className="font-bold text-slate-900 dark:text-white">{calendarPreview.expected_duration_days} days</p>
+                  </div>
+                </div>
+                <div className="mt-6 flex gap-3">
+                  <GradientButton
+                    variant="success"
+                    onClick={async () => {
+                      try {
+                        // Insert into season_calendars
+                        const { error: calendarError } = await supabase
+                          .from('season_calendars')
+                          .insert({
+                            division: selectedDivision,
+                            season_year: new Date().getFullYear(),
+                            season_start_date: calendarPreview.season_start_date,
+                            season_end_date: calendarPreview.season_end_date,
+                            pre_season_window_start: calendarPreview.pre_season_window_start,
+                            pre_season_window_end: calendarPreview.pre_season_window_end,
+                            mid_season_window_start: calendarPreview.mid_season_window_start,
+                            mid_season_window_end: calendarPreview.mid_season_window_end,
+                            total_fixtures: calendarPreview.total_fixtures,
+                            expected_duration_days: calendarPreview.expected_duration_days,
+                            is_finalized: true
+                          });
+                        if (calendarError) throw calendarError;
+
+                        // Create transfer windows
+                        const { error: windowError1 } = await supabase
+                          .from('transfer_windows')
+                          .insert({
+                            division: selectedDivision,
+                            season_year: new Date().getFullYear(),
+                            window_type: 'pre_season',
+                            start_date: calendarPreview.pre_season_window_start,
+                            end_date: calendarPreview.pre_season_window_end,
+                            is_active: new Date() >= new Date(calendarPreview.pre_season_window_start) && new Date() <= new Date(calendarPreview.pre_season_window_end)
+                          });
+                        if (windowError1) throw windowError1;
+
+                        const { error: windowError2 } = await supabase
+                          .from('transfer_windows')
+                          .insert({
+                            division: selectedDivision,
+                            season_year: new Date().getFullYear(),
+                            window_type: 'mid_season',
+                            start_date: calendarPreview.mid_season_window_start,
+                            end_date: calendarPreview.mid_season_window_end,
+                            is_active: false
+                          });
+                        if (windowError2) throw windowError2;
+
+                        setMessage('Season calendar finalized and transfer windows created!', 'success');
+                        setCalendarPreview(null);
+                        setSeasonStartDate('');
+                      } catch (error) {
+                        setMessage(error.message || 'Failed to finalize calendar', 'error');
+                      }
+                    }}
+                  >
+                    Finalize & Publish
+                  </GradientButton>
+                  <GradientButton
+                    variant="warning"
+                    onClick={() => {
+                      setCalendarPreview(null);
+                      setMessage('Calendar preview discarded', 'info');
+                    }}
+                  >
+                    Discard
+                  </GradientButton>
+                </div>
+              </div>
+            )}
+          </div>
         </GlassCard>
       )}
 

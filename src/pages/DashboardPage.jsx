@@ -1,11 +1,12 @@
-import { Bell } from 'lucide-react';
+import { Bell, AlertTriangle, Trophy } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Badge from '../components/Badge.jsx';
 import FixtureCard from '../components/FixtureCard.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
 import StandingsTable from '../components/StandingsTable.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { confirmScore, disputeScore, fetchMyFixtures, fetchStandings, submitScore } from '../lib/leagueApi.js';
+import { confirmScore, disputeScore, fetchMyFixtures, fetchStandings, submitScore, fetchUserSquad } from '../lib/leagueApi.js';
 import { supabase } from '../lib/supabase.js';
 
 function DashboardContent() {
@@ -13,6 +14,8 @@ function DashboardContent() {
   const [fixtures, setFixtures] = useState([]);
   const [standing, setStanding] = useState(null);
   const [notice, setNotice] = useState('');
+  const [userSquad, setUserSquad] = useState(null);
+  const [loadingSquad, setLoadingSquad] = useState(true);
 
   const pendingForMe = useMemo(
     () => fixtures.filter((fixture) => fixture.away_player_id === user.id && fixture.status === 'pending_confirmation'),
@@ -20,11 +23,17 @@ function DashboardContent() {
   );
 
   async function load() {
-    const [fixtureRows, standingsRows] = await Promise.all([fetchMyFixtures(user.id), fetchStandings(profile.division)]);
+    const [fixtureRows, standingsRows, squadData] = await Promise.all([
+      fetchMyFixtures(user.id),
+      fetchStandings(profile.division),
+      fetchUserSquad(user.id)
+    ]);
     setFixtures(fixtureRows);
     const myIndex = standingsRows.findIndex((row) => row.player_id === user.id);
     const row = standingsRows[myIndex] ?? null;
     setStanding(row ? { ...row, rank: myIndex + 1 } : null);
+    setUserSquad(squadData);
+    setLoadingSquad(false);
   }
 
   useEffect(() => {
@@ -49,12 +58,36 @@ function DashboardContent() {
 
   return (
     <div className="space-y-6">
+      {/* Squad Registration Notice */}
+      {!profile?.squad_locked && (
+        <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-5 shadow-lg dark:shadow-xl">
+          <div className="flex items-start gap-4">
+            <div className="p-2 bg-amber-500 dark:bg-amber-500/20 rounded-xl">
+              <AlertTriangle className="h-5 w-5 text-white dark:text-amber-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-black text-amber-900 dark:text-amber-400">Register Your Squad</h3>
+              <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+                You need to register your squad (22-25 players) before you can participate in league matches.
+              </p>
+              <Link
+                to="/squad-registration"
+                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2 text-sm font-black text-white hover:from-amber-500 hover:to-orange-500 shadow-lg shadow-amber-500/25"
+              >
+                <Trophy className="h-4 w-4" />
+                Register Squad Now
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       <section className="grid gap-4 lg:grid-cols-[1fr_2fr]">
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-lg dark:shadow-xl">
           <img src="/goalquest-logo.webp" alt="GoalQuest League logo" className="mb-4 h-28 w-full rounded-xl object-cover" />
           <p className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Player profile</p>
-          <h1 className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{profile.efootball_username || profile.gamertag || profile.full_name}</h1>
-          <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-400">{profile.squad_name || 'Independent player'}</p>
+          <h1 className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{profile.manager_handle || profile.gamertag || profile.full_name}</h1>
+          <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-400">{profile.custom_team_name || profile.squad_name || 'Independent player'}</p>
           <span className="mt-2 inline-flex rounded-full bg-emerald-100 dark:bg-emerald-500/10 px-2 py-1 text-xs font-black text-emerald-800 dark:text-emerald-400">Verified league profile</span>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <div><span className="font-bold text-slate-500 dark:text-slate-400">Division</span><div className="mt-1"><Badge tone={profile.division}>{profile.division}</Badge></div></div>
@@ -62,6 +95,7 @@ function DashboardContent() {
             <div><span className="font-bold text-slate-500 dark:text-slate-400">Penalty Points</span><p className="mt-1 font-black text-slate-900 dark:text-white">{standing?.penalty_points ?? 0}</p></div>
             <div><span className="font-bold text-slate-500 dark:text-slate-400">Form</span><p className="mt-1 font-black text-slate-900 dark:text-white">{standing?.form || '-'}</p></div>
             <div><span className="font-bold text-slate-500 dark:text-slate-400">Record</span><p className="mt-1 font-black text-slate-900 dark:text-white">{standing ? `${standing.won}W · ${standing.draw}D · ${standing.lost}L` : '-'}</p></div>
+            <div><span className="font-bold text-slate-500 dark:text-slate-400">Squad Size</span><p className="mt-1 font-black text-slate-900 dark:text-white">{userSquad ? userSquad.length : 'Not registered'}</p></div>
           </div>
         </div>
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-lg dark:shadow-xl">
