@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS squad_rosters (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   player_name TEXT NOT NULL,
-  player_rating INTEGER NOT NULL CHECK (player_rating >= 1 AND player_rating <= 99),
+  player_rating INTEGER NOT NULL CHECK (player_rating >= 1 AND player_rating <= 150),
   is_initial BOOLEAN DEFAULT true,
   added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   added_via TEXT DEFAULT 'initial' CHECK (added_via IN ('initial', 'transfer')),

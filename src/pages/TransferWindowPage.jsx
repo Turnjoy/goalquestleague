@@ -106,8 +106,8 @@ function TransferWindowContent() {
       return;
     }
 
-    if (!newPlayerRating || parseInt(newPlayerRating) < 1 || parseInt(newPlayerRating) > 99) {
-      showMessage('Please enter a valid rating (1-99)', 'error');
+    if (!newPlayerRating || parseInt(newPlayerRating) < 1 || parseInt(newPlayerRating) > 150) {
+      showMessage('Please enter a valid rating (1-150)', 'error');
       return;
     }
 

@@ -1,10 +1,9 @@
-import { Plus, Trash2, Trophy, User, AlertCircle, CheckCircle, Upload, Scan, X } from 'lucide-react';
+import { Plus, Trash2, Trophy, User, AlertCircle, CheckCircle, Upload, Scan, X, ArrowRight, Sparkles, RefreshCw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
-import Tesseract from 'tesseract.js';
 
 function SquadRegistrationContent() {
   const { profile } = useAuth();
@@ -15,9 +14,13 @@ function SquadRegistrationContent() {
   const [messageType, setMessageType] = useState('');
   const [existingSquad, setExistingSquad] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [ocrScanning, setOcrScanning] = useState(false);
-  const [ocrProgress, setOcrProgress] = useState(0);
-  const [showOcrSection, setShowOcrSection] = useState(false);
+
+  // AI Vision State
+  const [step, setStep] = useState(1); // 1: inventory, 2: pitch, 3: review
+  const [inventoryScreenshots, setInventoryScreenshots] = useState([]);
+  const [pitchScreenshot, setPitchScreenshot] = useState(null);
+  const [aiProcessing, setAiProcessing] = useState(false);
+  const [aiProgress, setAiProgress] = useState(0);
 
   // Check if user already has a squad
   useEffect(() => {
@@ -103,10 +106,10 @@ function SquadRegistrationContent() {
 
     const invalidRatings = squad.filter(p => {
       const rating = parseInt(p.player_rating);
-      return !rating || rating < 1 || rating > 99;
+      return !rating || rating < 1 || rating > 150;
     });
     if (invalidRatings.length > 0) {
-      errors.push('All player ratings must be between 1 and 99');
+      errors.push('All player ratings must be between 1 and 150');
     }
 
     const duplicateNames = squad.filter((p, i) =>
@@ -119,107 +122,81 @@ function SquadRegistrationContent() {
     return errors;
   }
 
-  async function handleOcrScan(files) {
-    if (!files || files.length === 0) return;
-
+  // AI Vision Functions
+  function handleInventoryUpload(e) {
+    const files = Array.from(e.target.files);
     if (files.length > 30) {
-      showMessage('Maximum 30 screenshots allowed', 'error');
+      showMessage('Maximum 30 inventory screenshots allowed', 'error');
+      return;
+    }
+    setInventoryScreenshots(files);
+  }
+
+  function handlePitchUpload(e) {
+    const file = e.target.files[0];
+    if (file) {
+      setPitchScreenshot(file);
+    }
+  }
+
+  async function processWithAI() {
+    if (inventoryScreenshots.length === 0) {
+      showMessage('Please upload at least one inventory screenshot', 'error');
       return;
     }
 
-    setOcrScanning(true);
-    setOcrProgress(0);
+    if (!pitchScreenshot) {
+      showMessage('Please upload the pitch/formation screenshot', 'error');
+      return;
+    }
 
-    const allExtractedPlayers = [];
+    setAiProcessing(true);
+    setAiProgress(10);
 
     try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        setOcrProgress(Math.round(((i + 1) / files.length) * 100));
+      const formData = new FormData();
+      inventoryScreenshots.forEach(file => {
+        formData.append('inventoryScreenshots', file);
+      });
+      formData.append('pitchScreenshot', pitchScreenshot);
 
-        const result = await Tesseract.recognize(file, 'eng', {
-          logger: (m) => {
-            if (m.status === 'recognizing text') {
-              // Progress is handled per file
-            }
-          }
-        });
+      setAiProgress(30);
 
-        const text = result.data.text;
-        const extractedPlayers = parseOcrText(text);
-        allExtractedPlayers.push(...extractedPlayers);
+      const response = await fetch('/api/squad/extract-vision', {
+        method: 'POST',
+        body: formData,
+      });
+
+      setAiProgress(70);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to process images');
       }
 
-      // Deduplicate and merge with existing squad
-      const deduplicatedPlayers = deduplicatePlayers(allExtractedPlayers);
-      const mergedSquad = mergeWithExistingSquad(deduplicatedPlayers);
+      const data = await response.json();
 
-      setSquad(mergedSquad);
-      showMessage(`Successfully extracted ${deduplicatedPlayers.length} players from ${files.length} screenshot(s)`, 'success');
-      setShowOcrSection(false);
+      if (data.success && data.players) {
+        setSquad(data.players.map(p => ({
+          id: null,
+          player_name: p.player_name,
+          player_rating: p.player_rating
+        })));
+        setStep(3);
+        showMessage(`AI successfully extracted ${data.players.length} players from your squad pitch!`, 'success');
+      } else {
+        throw new Error('AI processing failed');
+      }
+
+      setAiProgress(100);
 
     } catch (error) {
-      console.error('OCR Error:', error);
-      showMessage('Failed to process screenshots. Please try manual entry instead.', 'error');
+      console.error('AI Vision error:', error);
+      showMessage(`AI processing failed: ${error.message}. Please try manual entry instead.`, 'error');
     } finally {
-      setOcrScanning(false);
-      setOcrProgress(0);
+      setAiProcessing(false);
+      setAiProgress(0);
     }
-  }
-
-  function parseOcrText(text) {
-    const players = [];
-    const lines = text.split('\n').filter(line => line.trim());
-
-    for (const line of lines) {
-      // Try to match patterns like "Player Name 99" or "Player Name  99"
-      const match = line.match(/^([A-Za-z\s\.]+)\s+(\d{1,2})$/);
-      if (match) {
-        const name = match[1].trim();
-        const rating = parseInt(match[2]);
-
-        if (name && rating >= 1 && rating <= 99) {
-          players.push({
-            id: null,
-            player_name: name,
-            player_rating: rating
-          });
-        }
-      }
-    }
-
-    return players;
-  }
-
-  function deduplicatePlayers(players) {
-    const seen = new Set();
-    const deduplicated = [];
-
-    for (const player of players) {
-      const key = player.player_name.toLowerCase().trim();
-      if (!seen.has(key)) {
-        seen.add(key);
-        deduplicated.push(player);
-      }
-    }
-
-    return deduplicated;
-  }
-
-  function mergeWithExistingSquad(newPlayers) {
-    const existingNames = new Set(squad.map(p => p.player_name.toLowerCase().trim()));
-    const merged = [...squad];
-
-    for (const player of newPlayers) {
-      const key = player.player_name.toLowerCase().trim();
-      if (!existingNames.has(key)) {
-        merged.push(player);
-        existingNames.add(key);
-      }
-    }
-
-    // Enforce max 25 players
-    return merged.slice(0, 25);
   }
 
   async function handleSubmit(event) {
@@ -273,9 +250,7 @@ function SquadRegistrationContent() {
         .from('squad_rosters')
         .insert(squadData);
 
-      if (insertError) {
-        throw insertError;
-      }
+      if (insertError) throw insertError;
 
       // Lock the squad
       const { error: updateError } = await supabase
@@ -286,9 +261,7 @@ function SquadRegistrationContent() {
         })
         .eq('id', profile.id);
 
-      if (updateError) {
-        throw updateError;
-      }
+      if (updateError) throw updateError;
 
       showMessage('Squad registered successfully! Redirecting to dashboard...', 'success');
       setTimeout(() => navigate('/dashboard'), 2000);
@@ -362,9 +335,9 @@ function SquadRegistrationContent() {
             <Trophy className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white">Squad Registration</h1>
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white">AI-Powered Squad Registration</h1>
             <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">
-              Register your initial squad (22-25 players) for the season
+              Register your squad using Google Gemini 1.5 Flash vision AI
             </p>
           </div>
         </div>
@@ -380,203 +353,336 @@ function SquadRegistrationContent() {
           </div>
         )}
 
-        {/* Squad Stats */}
-        <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center gap-2">
-              <User className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-              <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">Players</span>
+        {/* Step Indicator */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold ${step >= 1 ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+              <span className="w-6 h-6 rounded-full bg-white text-indigo-600 flex items-center justify-center text-xs font-black">1</span>
+              Inventory Screenshots
             </div>
-            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
-              {squad.length} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">/ 25</span>
-            </p>
-          </div>
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">Total Rating</span>
+            <ArrowRight className="h-4 w-4 text-slate-400" />
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold ${step >= 2 ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+              <span className="w-6 h-6 rounded-full bg-white text-indigo-600 flex items-center justify-center text-xs font-black">2</span>
+              Pitch Screenshot
             </div>
-            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{calculateTotalRating()}</p>
-          </div>
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center gap-2">
-              <User className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-              <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">Average Rating</span>
+            <ArrowRight className="h-4 w-4 text-slate-400" />
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold ${step >= 3 ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+              <span className="w-6 h-6 rounded-full bg-white text-indigo-600 flex items-center justify-center text-xs font-black">3</span>
+              Review & Submit
             </div>
-            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{calculateAverageRating()}</p>
           </div>
         </div>
 
-        {/* OCR Scan Section */}
-        <div className="mb-6">
-          {!showOcrSection ? (
+        {/* Step 1: Inventory Screenshots */}
+        {step === 1 && (
+          <div className="space-y-6">
+            <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-blue-500 dark:bg-blue-500/20 rounded-xl">
+                  <Upload className="h-5 w-5 text-white dark:text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-black text-blue-900 dark:text-blue-400 mb-2">Step 1: Upload Inventory Screenshots</h3>
+                  <p className="text-sm text-blue-800 dark:text-blue-300 mb-4">
+                    Upload screenshots of your player inventory. The AI will extract all player names to create a name pool for matching.
+                  </p>
+                  <div className="space-y-3">
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handleInventoryUpload}
+                      disabled={aiProcessing}
+                      className="w-full text-sm text-slate-700 dark:text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-white dark:file:bg-slate-800 file:text-blue-700 dark:file:text-blue-400 hover:file:bg-blue-50 dark:hover:file:bg-blue-500/30"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Max 30 screenshots. Supported: PNG, JPG, JPEG.
+                    </p>
+                  </div>
+                  {inventoryScreenshots.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Selected: {inventoryScreenshots.length} screenshot(s)
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setInventoryScreenshots([])}
+                        className="text-xs text-rose-600 dark:text-rose-400 hover:underline"
+                      >
+                        Clear selection
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <button
               type="button"
-              onClick={() => setShowOcrSection(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-blue-300 dark:border-blue-600 px-4 py-2.5 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
+              onClick={() => setStep(2)}
+              disabled={inventoryScreenshots.length === 0}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-black text-white hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/25"
             >
-              <Scan className="h-4 w-4" />
-              Scan Squad Screenshots (OCR)
+              Next: Upload Pitch Screenshot
+              <ArrowRight className="h-4 w-4" />
             </button>
-          ) : (
-            <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Scan className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  <h3 className="text-sm font-bold text-blue-900 dark:text-blue-400">Scan Squad Screenshots</h3>
+          </div>
+        )}
+
+        {/* Step 2: Pitch Screenshot */}
+        {step === 2 && (
+          <div className="space-y-6">
+            <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/30 rounded-xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-purple-500 dark:bg-purple-500/20 rounded-xl">
+                  <Scan className="h-5 w-5 text-white dark:text-purple-400" />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowOcrSection(false)}
-                  className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                <div className="flex-1">
+                  <h3 className="text-lg font-black text-purple-900 dark:text-purple-400 mb-2">Step 2: Upload Pitch/Formation Screenshot</h3>
+                  <p className="text-sm text-purple-800 dark:text-purple-300 mb-4">
+                    Upload a screenshot of your tactical pitch showing the 23 active players with their boosted ratings (1-150).
+                  </p>
+                  <div className="space-y-3">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePitchUpload}
+                      disabled={aiProcessing}
+                      className="w-full text-sm text-slate-700 dark:text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-white dark:file:bg-slate-800 file:text-purple-700 dark:file:text-purple-400 hover:file:bg-purple-50 dark:hover:file:bg-purple-500/30"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Max 10MB. Supported: PNG, JPG, JPEG.
+                    </p>
+                  </div>
+                  {pitchScreenshot && (
+                    <div className="mt-4">
+                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Selected: {pitchScreenshot.name}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setPitchScreenshot(null)}
+                        className="text-xs text-rose-600 dark:text-rose-400 hover:underline"
+                      >
+                        Clear selection
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-
-              {ocrScanning ? (
-                <div className="text-center py-4">
-                  <div className="mb-2 text-sm font-semibold text-blue-900 dark:text-blue-400">
-                    Processing screenshots... {ocrProgress}%
-                  </div>
-                  <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
-                    <div
-                      className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${ocrProgress}%` }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-xs text-blue-800 dark:text-blue-300">
-                    Upload up to 30 squad screenshots. The system will automatically extract player names and ratings.
-                    You can edit the results before submitting.
-                  </p>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={(e) => handleOcrScan(e.target.files)}
-                    disabled={ocrScanning}
-                    className="w-full text-sm text-slate-700 dark:text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 dark:file:bg-blue-500/20 file:text-blue-700 dark:file:text-blue-400 hover:file:bg-blue-100 dark:hover:file:bg-blue-500/30"
-                  />
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Supported formats: PNG, JPG, JPEG. Max 30 images.
-                  </p>
-                </div>
-              )}
             </div>
-          )}
-        </div>
 
-        {/* Player List */}
-        <div className="mb-6 overflow-x-auto">
-          <table className="w-full min-w-[600px]">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-700">
-                <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">#</th>
-                <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">Player Name</th>
-                <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">Rating (1-99)</th>
-                <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {squad.map((player, index) => (
-                <tr key={index} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                  <td className="px-4 py-3 font-black text-slate-900 dark:text-white">{index + 1}</td>
-                  <td className="px-4 py-3">
-                    <input
-                      type="text"
-                      value={player.player_name}
-                      onChange={(e) => updatePlayer(index, 'player_name', e.target.value)}
-                      className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder="Player name"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <input
-                      type="number"
-                      min="1"
-                      max="99"
-                      value={player.player_rating}
-                      onChange={(e) => updatePlayer(index, 'player_rating', e.target.value)}
-                      className="w-24 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder="1-99"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => removePlayer(index)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-rose-300 dark:border-rose-600 px-3 py-2 text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {squad.length === 0 && (
-                <tr>
-                  <td colSpan="4" className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
-                    No players added yet. Click "Add Player" to start building your squad.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Add Player Button */}
-        <div className="mb-6">
-          <button
-            type="button"
-            onClick={addPlayer}
-            disabled={squad.length >= 25}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="h-4 w-4" />
-            Add Player
-          </button>
-          {squad.length >= 25 && (
-            <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">Maximum squad size reached (25 players)</p>
-          )}
-        </div>
-
-        {/* Requirements Info */}
-        <div className="mb-6 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-            <div className="text-sm">
-              <p className="font-semibold text-blue-900 dark:text-blue-400 mb-1">Squad Requirements:</p>
-              <ul className="list-disc list-inside space-y-1 text-blue-800 dark:text-blue-300">
-                <li>Minimum 22 players, maximum 25 players</li>
-                <li>All player names must be unique</li>
-                <li>Player ratings must be between 1 and 99</li>
-                <li>Once submitted, your squad will be locked for the season</li>
-              </ul>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                ← Back
+              </button>
+              <button
+                type="button"
+                onClick={processWithAI}
+                disabled={!pitchScreenshot || aiProcessing}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 text-sm font-black text-white hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/25"
+              >
+                {aiProcessing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Processing with AI...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Extract with AI
+                  </>
+                )}
+              </button>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Submit Button */}
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting || squad.length < 22 || squad.length > 25}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-black text-white hover:from-indigo-500 hover:to-violet-500 shadow-lg shadow-indigo-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {submitting ? 'Submitting...' : 'Submit Squad'}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/dashboard')}
-            className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
+        {/* Step 3: Review & Submit */}
+        {step === 3 && (
+          <div className="space-y-6">
+            {/* AI Success Notice */}
+            <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <div>
+                  <p className="text-sm font-bold text-emerald-900 dark:text-emerald-400">
+                    AI Successfully Extracted 23 Players
+                  </p>
+                  <p className="text-xs text-emerald-800 dark:text-emerald-300">
+                    Extracted from your squad pitch with boosted ratings. You can manually adjust names or ratings below.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Add Reserve Players Notice */}
+            {squad.length < 25 && (
+              <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  <div>
+                    <p className="text-sm font-bold text-amber-900 dark:text-amber-400">
+                      Add Reserve Players
+                    </p>
+                    <p className="text-xs text-amber-800 dark:text-amber-300">
+                      You have {25 - squad.length} reserve player slots remaining. Minimum squad size is 22 players.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Squad Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">Players</span>
+                </div>
+                <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
+                  {squad.length} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">/ 25</span>
+                </p>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">Total Rating</span>
+                </div>
+                <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{calculateTotalRating()}</p>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">Average Rating</span>
+                </div>
+                <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{calculateAverageRating()}</p>
+              </div>
+            </div>
+
+            {/* Player List */}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px]">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700">
+                    <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">#</th>
+                    <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">Player Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">Rating (1-150)</th>
+                    <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {squad.map((player, index) => (
+                    <tr key={index} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="px-4 py-3 font-black text-slate-900 dark:text-white">{index + 1}</td>
+                      <td className="px-4 py-3">
+                        <input
+                          type="text"
+                          value={player.player_name}
+                          onChange={(e) => updatePlayer(index, 'player_name', e.target.value)}
+                          className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Player name"
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <input
+                          type="number"
+                          min="1"
+                          max="150"
+                          value={player.player_rating}
+                          onChange={(e) => updatePlayer(index, 'player_rating', e.target.value)}
+                          className="w-24 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="1-150"
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => removePlayer(index)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-rose-300 dark:border-rose-600 px-3 py-2 text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {squad.length === 0 && (
+                    <tr>
+                      <td colSpan="4" className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                        No players added yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Add Reserve Player Button */}
+            <div>
+              <button
+                type="button"
+                onClick={addPlayer}
+                disabled={squad.length >= 25}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="h-4 w-4" />
+                Add Reserve Player
+              </button>
+              {squad.length >= 25 && (
+                <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">Maximum squad size reached (25 players)</p>
+              )}
+            </div>
+
+            {/* Requirements Info */}
+            <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-semibold text-blue-900 dark:text-blue-400 mb-1">Squad Requirements:</p>
+                  <ul className="list-disc list-inside space-y-1 text-blue-800 dark:text-blue-300">
+                    <li>Minimum 22 players, maximum 25 players</li>
+                    <li>All player names must be unique</li>
+                    <li>Player ratings must be between 1 and 150 (boosted ratings supported)</li>
+                    <li>Once submitted, your squad will be locked for the season</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Submit Buttons */}
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting || squad.length < 22 || squad.length > 25}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-black text-white hover:from-indigo-500 hover:to-violet-500 shadow-lg shadow-indigo-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Submitting...' : 'Submit Squad'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                ← Back to AI Extraction
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Back to Dashboard */}
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+        >
+          ← Cancel and Return to Dashboard
+        </button>
       </div>
     </section>
   );
