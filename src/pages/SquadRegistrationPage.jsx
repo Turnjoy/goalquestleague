@@ -10,7 +10,7 @@ const renderVisionApiUrl = 'https://goalquestleague.onrender.com';
 const visionApiUrl = (
   import.meta.env.VITE_VISION_API_URL ||
   import.meta.env.VITE_API_URL ||
-  (import.meta.env.PROD ? renderVisionApiUrl : '')
+  renderVisionApiUrl
 ).replace(/\/$/, '');
 
 function SquadRegistrationContent() {
@@ -219,7 +219,8 @@ function SquadRegistrationContent() {
           'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          images: [...base64InventoryImages, base64PitchImage],
+          inventoryImages: base64InventoryImages,
+          pitchImage: base64PitchImage,
         }),
       });
 
@@ -462,12 +463,17 @@ function SquadRegistrationContent() {
                   <Upload className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-black text-black dark:text-white mb-2">Step 1: Upload Player List Screenshots</h3>
+                  <h2 className="text-lg font-black text-black dark:text-white mb-2">Step 1: Upload Player List Screenshots</h2>
                   <p className="text-sm text-black dark:text-white mb-4">
                     Upload 1–30 screenshots showing your players.
                   </p>
                   <div className="space-y-3">
+                    <label htmlFor="inventory-screenshots-upload" className="sr-only">
+                      Upload Player List Screenshots
+                    </label>
                     <input
+                      id="inventory-screenshots-upload"
+                      name="inventory_screenshots"
                       type="file"
                       multiple
                       accept="image/png,image/jpeg"
@@ -518,12 +524,17 @@ function SquadRegistrationContent() {
                   <Scan className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-black text-black dark:text-white mb-2">Step 2: Upload Squad Screenshot</h3>
+                  <h2 className="text-lg font-black text-black dark:text-white mb-2">Step 2: Upload Squad Screenshot</h2>
                   <p className="text-sm text-black dark:text-white mb-4">
                     Upload a screenshot showing your full squad and player ratings.
                   </p>
                   <div className="space-y-3">
+                    <label htmlFor="pitch-screenshot-upload" className="sr-only">
+                      Upload Squad Screenshot
+                    </label>
                     <input
+                      id="pitch-screenshot-upload"
+                      name="pitch_screenshot"
                       type="file"
                       accept="image/png,image/jpeg"
                       onChange={handlePitchUpload}
@@ -605,6 +616,7 @@ function SquadRegistrationContent() {
         {/* Step 3: Review & Submit */}
         {step === 3 && (
           <div className="space-y-6">
+            <h2 className="text-lg font-black text-black dark:text-white mb-2">Step 3: Review & Submit Squad</h2>
             {/* AI Success Notice */}
             <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-xl p-4">
               <div className="flex items-center gap-3">
@@ -687,7 +699,12 @@ function SquadRegistrationContent() {
                     <tr key={index} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="px-4 py-3 font-black text-black dark:text-white">{index + 1}</td>
                       <td className="px-4 py-3">
+                        <label htmlFor={`player-name-${index}`} className="sr-only">
+                          Player name for player {index + 1}
+                        </label>
                         <input
+                          id={`player-name-${index}`}
+                          name={`player_name_${index}`}
                           type="text"
                           value={player.player_name}
                           onChange={(e) => updatePlayer(index, 'player_name', e.target.value)}
@@ -699,7 +716,12 @@ function SquadRegistrationContent() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
+                        <label htmlFor={`player-rating-${index}`} className="sr-only">
+                          Player rating for player {index + 1}
+                        </label>
                         <input
+                          id={`player-rating-${index}`}
+                          name={`player_rating_${index}`}
                           type="number"
                           min="1"
                           max="150"
