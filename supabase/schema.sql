@@ -506,7 +506,7 @@ declare
   num_rounds int;
   home_player_id uuid;
   away_player_id uuid;
-  matchweek int;
+  matchweek int
   fixture_count int;
   season int;
   team_name text;
