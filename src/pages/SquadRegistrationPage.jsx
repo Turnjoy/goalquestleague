@@ -1,9 +1,12 @@
 import { Plus, Trash2, Trophy, User, AlertCircle, CheckCircle, Upload, Scan, X, ArrowRight, Sparkles, RefreshCw } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
+import { BACKEND_WAKE_MESSAGE, waitForVisionBackend } from '../lib/visionBackendWakeup.js';
+
+const visionApiUrl = (import.meta.env.VITE_VISION_API_URL || '').replace(/\/$/, '');
 
 function SquadRegistrationContent() {
   const { profile } = useAuth();
@@ -21,6 +24,9 @@ function SquadRegistrationContent() {
   const [pitchScreenshot, setPitchScreenshot] = useState(null);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [aiProgress, setAiProgress] = useState(0);
+  const [aiStage, setAiStage] = useState('idle');
+  const [aiError, setAiError] = useState('');
+  const aiProcessingRef = useRef(false);
 
   // Check if user already has a squad
   useEffect(() => {
@@ -140,6 +146,7 @@ function SquadRegistrationContent() {
   }
 
   async function processWithAI() {
+    if (aiProcessingRef.current) return;
     if (inventoryScreenshots.length === 0) {
       showMessage('Please upload at least one inventory screenshot', 'error');
       return;
@@ -150,10 +157,22 @@ function SquadRegistrationContent() {
       return;
     }
 
+    aiProcessingRef.current = true;
+    setAiError('');
+    setAiStage('checking');
     setAiProcessing(true);
     setAiProgress(10);
+    const controller = new AbortController();
+    let requestTimeout;
+    let postStarted = false;
 
     try {
+      await waitForVisionBackend({
+        healthUrl: `${visionApiUrl}/api/health`,
+        signal: controller.signal,
+        onWaking: () => setAiStage('waking'),
+      });
+      setAiStage('processing');
       const formData = new FormData();
       inventoryScreenshots.forEach(file => {
         formData.append('inventoryScreenshots', file);
@@ -162,15 +181,18 @@ function SquadRegistrationContent() {
 
       setAiProgress(30);
 
-      const response = await fetch('/api/squad/extract-vision', {
+      requestTimeout = setTimeout(() => controller.abort(), 320000);
+      postStarted = true;
+      const response = await fetch(`${visionApiUrl}/api/squad/extract-vision`, {
         method: 'POST',
+        signal: controller.signal,
         body: formData,
       });
 
       setAiProgress(70);
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to process images');
       }
 
@@ -192,10 +214,23 @@ function SquadRegistrationContent() {
 
     } catch (error) {
       console.error('AI Vision error:', error);
-      showMessage(`AI processing failed: ${error.message}. Please try manual entry instead.`, 'error');
+      const uncertain = error.name === 'AbortError' && postStarted;
+      const text = error.code === 'BACKEND_UNAVAILABLE'
+        ? 'The squad service is taking longer than expected to wake up. Your screenshots are still selected. You can try again shortly.'
+        : uncertain
+          ? 'We could not confirm whether image processing finished. Your screenshots are still selected. Wait a moment before choosing to try again.'
+          : error.name === 'AbortError'
+            ? 'The squad service did not wake up in time. Your screenshots are still selected; try again shortly.'
+            : (error.message || 'We could not process these screenshots. Your selections are still saved; please try again.');
+      setAiError(text);
+      showMessage(text, 'error');
     } finally {
+      clearTimeout(requestTimeout);
+      controller.abort();
+      aiProcessingRef.current = false;
       setAiProcessing(false);
       setAiProgress(0);
+      setAiStage('idle');
     }
   }
 
@@ -489,7 +524,7 @@ function SquadRegistrationContent() {
                 {aiProcessing ? (
                   <>
                     <RefreshCw className="h-4 w-4 animate-spin" />
-                    Processing with AI...
+                    {aiStage === 'waking' ? 'Preparing squad registration...' : 'Processing with AI...'}
                   </>
                 ) : (
                   <>
@@ -499,6 +534,26 @@ function SquadRegistrationContent() {
                 )}
               </button>
             </div>
+            {aiProcessing && aiStage === 'waking' && (
+              <div role="status" aria-live="polite" className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+                <div className="flex items-start gap-3">
+                  <RefreshCw className="mt-1 h-5 w-5 shrink-0 animate-spin" />
+                  <div>
+                    <p className="font-black">{BACKEND_WAKE_MESSAGE.title}</p>
+                    <p className="mt-1 text-sm">{BACKEND_WAKE_MESSAGE.body}</p>
+                    <p className="mt-2 text-sm font-semibold">{BACKEND_WAKE_MESSAGE.reminder}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {aiError && !aiProcessing && (
+              <div role="alert" className="mt-5 rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-900 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-100">
+                <p>{aiError}</p>
+                <button type="button" onClick={processWithAI} className="mt-3 rounded-lg bg-rose-700 px-4 py-2 font-bold text-white hover:bg-rose-600 dark:bg-rose-500 dark:text-slate-950">
+                  Try again with selected screenshots
+                </button>
+              </div>
+            )}
           </div>
         )}
 
