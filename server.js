@@ -522,6 +522,7 @@ async function handleExtractSquad(req, res) {
 
     if (!pitchImage || typeof pitchImage !== 'string') return res.status(400).json({ error: 'Please upload one tactical squad screenshot.', code: 'MISSING_TACTICAL_IMAGE' });
     const allImages = [...inventoryImages, pitchImage];
+    console.log(`Incoming base64 payload size: ${Buffer.byteLength(JSON.stringify(allImages))} bytes (${(Buffer.byteLength(JSON.stringify(allImages)) / 1024 / 1024).toFixed(2)} MB)`);
     let totalBytes = 0;
     const buffers = [];
     for (let i = 0; i < allImages.length; i++) {
@@ -553,6 +554,7 @@ async function handleExtractSquad(req, res) {
 
     console.log('=== Starting Squad Extraction Pipeline ===');
     console.log(`Received ${inventoryImages.length} inventory images and 1 pitch image`);
+    console.log('Gemini API Key loaded:', !!process.env.GEMINI_API_KEY);
 
     const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY,
@@ -563,7 +565,7 @@ async function handleExtractSquad(req, res) {
     if (!model) return res.status(503).json({ error: 'Screenshot processing is not configured.', code: 'SERVICE_NOT_CONFIGURED' });
     if (!ai) {
       console.error('Screenshot extraction is unavailable: GEMINI_API_KEY is not configured.');
-      return res.status(503).json({ error: 'Screenshot processing is temporarily unavailable. Please try again shortly.' });
+      return res.status(503).json({ error: 'Gemini API key is missing on the server environment variables.' });
     }
 
     // Require Gemini for registration extraction. Local OCR fallback produced slow,
