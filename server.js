@@ -408,7 +408,7 @@ async function matchCards(pitchCards, inventoryCards) {
   const comparisons = compareCardHashes(pitchCards, availableInventory);
   const used = new Set();
   const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
-  const model = process.env.GEMINI_PRIMARY_MODEL || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const model = process.env.GEMINI_PRIMARY_MODEL || process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
   let geminiCalls = 0;
   let disableGemini = !ai;
   if (!ai) console.info('Gemini fallback unavailable: GEMINI_API_KEY is not configured; uncertain identities require review');
@@ -561,8 +561,8 @@ async function handleExtractSquad(req, res) {
       apiKey: process.env.GEMINI_API_KEY,
       httpOptions: { timeout: 60000, retryOptions: { attempts: 1 } },
     }) : null;
-    const model = process.env.GEMINI_PRIMARY_MODEL || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-    const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.5-flash';
+    const model = process.env.GEMINI_PRIMARY_MODEL || process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
+    const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || 'gemini-1.5-flash';
     console.log(`Gemini models configured - Primary: ${model}, Fallback: ${fallbackModel}`);
     if (!model) return res.status(503).json({ error: 'Screenshot processing is not configured.', code: 'SERVICE_NOT_CONFIGURED' });
     if (!ai) {
