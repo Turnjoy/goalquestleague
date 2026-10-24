@@ -10,7 +10,7 @@ const renderVisionApiUrl = 'https://goalquestleague.onrender.com';
 const visionApiUrl = (
   import.meta.env.VITE_VISION_API_URL ||
   import.meta.env.VITE_API_URL ||
-  (import.meta.env.PROD ? renderVisionApiUrl : '')
+  renderVisionApiUrl
 ).replace(/\/$/, '');
 
 function SquadRegistrationContent() {

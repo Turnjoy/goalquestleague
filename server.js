@@ -14,17 +14,24 @@ import { runSquadPipeline, classifyGeminiError, normalizeScreenshotPayload } fro
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 10000;
 
 const allowedOrigins = new Set([
+  'https://goalquestleague.com.ng',
+  'https://0e39606a.goalquestleague.pages.dev',
   'https://goalquestleague.pages.dev',
   ...String(process.env.FRONTEND_ORIGIN || '').split(',').map(value => value.trim()).filter(Boolean),
 ]);
 for (const origin of ['http://localhost:5173', 'http://127.0.0.1:5173']) allowedOrigins.add(origin);
-app.use(cors({ origin(origin, callback) {
-  if (!origin || allowedOrigins.has(origin)) return callback(null, true);
-  return callback(null, false);
-} }));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+    return callback(null, false);
+  },
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 app.use(express.json({ limit: '180mb' }));
 app.use(express.urlencoded({ limit: '180mb', extended: true }));
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 4 * 1024 * 1024, files: 31 } });
@@ -503,6 +510,7 @@ app.get('/api/health', (req, res) => {
 });
 
 async function handleExtractSquad(req, res) {
+  console.log('📥 Incoming /api/extract-squad request received from frontend!');
   try {
     let payload;
     try { payload = normalizeScreenshotPayload(req.body || {}); }
@@ -645,7 +653,7 @@ app.post('/api/squad/extract-vision', upload.fields([
 });
 
 const server = app.listen(port, '0.0.0.0', () => {
-  console.log(`🚀 Local Vision API server running on http://localhost:${port}`);
+  console.log(`🚀 Server listening on port ${port}`);
   console.log(`🔧 Health check: http://localhost:${port}/api/health`);
   console.log(`🔑 Mode: Gemini squad extraction with temporary in-memory image processing`);
 });
