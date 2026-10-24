@@ -10,7 +10,7 @@ const renderVisionApiUrl = 'https://goalquestleague.onrender.com';
 const visionApiUrl = (
   import.meta.env.VITE_VISION_API_URL ||
   import.meta.env.VITE_API_URL ||
-  renderVisionApiUrl
+  (import.meta.env.PROD ? renderVisionApiUrl : '')
 ).replace(/\/$/, '');
 
 function SquadRegistrationContent() {
@@ -187,30 +187,32 @@ function SquadRegistrationContent() {
       const accessToken = sessionData?.session?.access_token;
       if (!accessToken) throw new Error('Please sign in again before processing screenshots.');
 
+      // Wake up the backend
       await waitForVisionBackend({
         healthUrl: `${visionApiUrl}/api/health`,
         signal: controller.signal,
         onWaking: () => setAiStage('waking'),
       });
+
       setAiStage('processing');
       setAiProgress(30);
 
-      const toBase64 = (file) => new Promise((resolve, reject) => {
+      const toBase64 = file => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = () => resolve(reader.result);
-        reader.onerror = (error) => reject(error);
+        reader.onerror = () => reject(reader.error || new Error('Could not read screenshot.'));
       });
 
-      const base64InventoryImages = await Promise.all(
-        inventoryScreenshots.map(file => toBase64(file))
-      );
-      const base64PitchImage = await toBase64(pitchScreenshot);
-
+      const [base64InventoryImages, base64PitchImage] = await Promise.all([
+        Promise.all(inventoryScreenshots.map(toBase64)),
+        toBase64(pitchScreenshot),
+      ]);
       setAiProgress(50);
 
       requestTimeout = setTimeout(() => controller.abort(), 320000);
       postStarted = true;
+
       const response = await fetch(`${visionApiUrl}/api/extract-squad`, {
         method: 'POST',
         signal: controller.signal,
@@ -237,8 +239,19 @@ function SquadRegistrationContent() {
       const data = await response.json();
       console.log('API Response:', data);
 
-      if (data.success && data.squad) {
-        setSquad(data.squad.map(p => ({
+      const extractedPlayers = Array.isArray(data.squad)
+        ? data.squad
+        : Array.isArray(data.players)
+          ? data.players.map(player => ({
+            name: player.player_name,
+            rating: player.player_rating,
+            tacticalPosition: player.tactical_position,
+            isStarter: player.is_starter,
+            matchMethod: player.match_method,
+          }))
+          : null;
+      if (data.success && extractedPlayers) {
+        setSquad(extractedPlayers.map(p => ({
           id: null,
           player_name: p.name || '',
           player_rating: p.rating ?? '',
@@ -250,13 +263,12 @@ function SquadRegistrationContent() {
           review_status: p.reviewStatus || 'needs_review',
         })));
         setExtractionStats(data.stats || null);
+        setAiProgress(100);
         setStep(3);
-        showMessage(`Successfully added ${data.squad.length} players from your squad screenshot.`, 'success');
+        showMessage(`Successfully extracted ${extractedPlayers.length} players. Review the squad before submitting.`, 'success');
       } else {
         throw new Error('AI processing failed - no players returned');
       }
-
-      setAiProgress(100);
 
     } catch (error) {
       console.error('AI Vision error:', error);
@@ -580,7 +592,9 @@ function SquadRegistrationContent() {
                 {aiProcessing ? (
                   <>
                     <RefreshCw className="h-4 w-4 animate-spin" />
-                    {aiStage === 'waking' ? 'Preparing squad registration...' : 'Matching players and reading squad ratings...'}
+                    {aiStage === 'checking' ? 'Connecting to extraction server...' :
+                     aiStage === 'waking' ? 'Preparing squad registration...' :
+                     'Matching players and reading squad ratings...'}
                   </>
                 ) : (
                   <>
