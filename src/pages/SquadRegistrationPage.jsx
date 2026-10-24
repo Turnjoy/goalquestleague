@@ -6,12 +6,9 @@ import { supabase } from '../lib/supabase.js';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
 import { BACKEND_WAKE_MESSAGE, waitForVisionBackend } from '../lib/visionBackendWakeup.js';
 
-const renderVisionApiUrl = 'https://goalquestleague.onrender.com';
-const visionApiUrl = (
-  import.meta.env.VITE_VISION_API_URL ||
-  import.meta.env.VITE_API_URL ||
-  renderVisionApiUrl
-).replace(/\/$/, '');
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'https://goalquestleague.onrender.com').replace(/\/$/, '');
+
+console.log('API Base URL configured:', API_BASE_URL);
 
 function SquadRegistrationContent() {
   const { profile } = useAuth();
@@ -189,7 +186,7 @@ function SquadRegistrationContent() {
 
       // Wake up the backend
       await waitForVisionBackend({
-        healthUrl: `${visionApiUrl}/api/health`,
+        healthUrl: `${API_BASE_URL}/api/health`,
         signal: controller.signal,
         onWaking: () => setAiStage('waking'),
       });
@@ -213,7 +210,9 @@ function SquadRegistrationContent() {
       requestTimeout = setTimeout(() => controller.abort(), 320000);
       postStarted = true;
 
-      const response = await fetch(`${visionApiUrl}/api/extract-squad`, {
+      console.log('Sending squad payload to:', `${API_BASE_URL}/api/extract-squad`);
+
+      const response = await fetch(`${API_BASE_URL}/api/extract-squad`, {
         method: 'POST',
         signal: controller.signal,
         headers: {

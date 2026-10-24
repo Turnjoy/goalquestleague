@@ -13,8 +13,9 @@ export default function App() {
   useEffect(() => {
     const warmUpBackend = async () => {
       try {
-        const visionApiUrl = import.meta.env.VITE_API_URL || 'https://goalquestleague.onrender.com';
-        await fetch(`${visionApiUrl}/api/health`, {
+        const API_BASE_URL = (import.meta.env.VITE_API_URL || 'https://goalquestleague.onrender.com').replace(/\/$/, '');
+        console.log('Warming up backend at:', `${API_BASE_URL}/api/health`);
+        await fetch(`${API_BASE_URL}/api/health`, {
           method: 'GET',
           cache: 'no-store',
         });
