@@ -407,8 +407,8 @@ async function matchCards(pitchCards, inventoryCards) {
   const availableInventory = Array.isArray(inventoryCards) ? inventoryCards : [];
   const comparisons = compareCardHashes(pitchCards, availableInventory);
   const used = new Set();
-  const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
-  const model = process.env.GEMINI_PRIMARY_MODEL || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { timeout: 120000, retryOptions: { attempts: 3 } } }) : null;
+  const model = process.env.GEMINI_PRIMARY_MODEL || process.env.GEMINI_MODEL || 'gemini-4-argon';
   let geminiCalls = 0;
   let disableGemini = !ai;
   if (!ai) console.info('Gemini fallback unavailable: GEMINI_API_KEY is not configured; uncertain identities require review');
@@ -559,11 +559,12 @@ async function handleExtractSquad(req, res) {
 
     const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY,
-      httpOptions: { timeout: 60000, retryOptions: { attempts: 1 } },
+      httpOptions: { timeout: 120000, retryOptions: { attempts: 3 } },
     }) : null;
-    const model = process.env.GEMINI_PRIMARY_MODEL || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-    const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.6-flash';
-    console.log(`Gemini models configured - Primary: ${model}, Fallback: ${fallbackModel}`);
+    const model = process.env.GEMINI_PRIMARY_MODEL || process.env.GEMINI_MODEL || 'gemini-4-argon';
+    const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.8-flash';
+    const tertiaryModel = process.env.GEMINI_TERTIARY_MODEL || 'gemini-3.6-flash';
+    console.log(`Gemini models configured - Primary: ${model}, Fallback: ${fallbackModel}, Tertiary: ${tertiaryModel}`);
     if (!model) return res.status(503).json({ error: 'Screenshot processing is not configured.', code: 'SERVICE_NOT_CONFIGURED' });
     if (!ai) {
       console.error('Screenshot extraction is unavailable: GEMINI_API_KEY is not configured.');
@@ -580,7 +581,7 @@ async function handleExtractSquad(req, res) {
     try {
       const pitchBuffer = await prepareGeminiImage(buffers[buffers.length - 1]);
       const inventoryBuffers = await Promise.all(buffers.slice(0, -1).map(image => prepareGeminiImage(image)));
-      const extracted = await runSquadPipeline({ ai, primaryModel: model, fallbackModel, inventoryBuffers, pitchBuffer });
+      const extracted = await runSquadPipeline({ ai, primaryModel: model, fallbackModel, tertiaryModel, inventoryBuffers, pitchBuffer });
       squad = extracted.players;
       squadCollectiveStrength = extracted.collectiveStrength;
       squadModelUsed = extracted.modelUsed;

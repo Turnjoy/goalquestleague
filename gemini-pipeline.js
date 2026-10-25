@@ -109,16 +109,16 @@ function initialBatches(items, maxSize) {
   return out;
 }
 
-export async function runSquadPipeline({ ai, primaryModel, fallbackModel, inventoryBuffers, pitchBuffer, progress = () => {} }) {
-  const retryLimit = intEnv('GEMINI_RETRY_LIMIT', 2, 1, 4);
+export async function runSquadPipeline({ ai, primaryModel, fallbackModel, tertiaryModel, inventoryBuffers, pitchBuffer, progress = () => {} }) {
+  const retryLimit = intEnv('GEMINI_RETRY_LIMIT', 3, 1, 5);
   const firstSize = intEnv('GEMINI_BATCH_SIZE', 15, 1, 15);
   const smallSize = intEnv('GEMINI_SMALL_BATCH_SIZE', 8, 1, 8);
   const indices = inventoryBuffers.map((_, i) => i + 1);
   const pending = initialBatches(indices, firstSize).map(indexes => ({ indexes, model: primaryModel }));
   const completed = [];
   const failed = [];
-  const deadline = Date.now() + intEnv('GEMINI_PROCESSING_TIMEOUT_MS', 260000, 30000, 300000);
-  const budget = { calls: 0, max: intEnv('GEMINI_MAX_CALLS', 24, 2, 40) };
+  const deadline = Date.now() + intEnv('GEMINI_PROCESSING_TIMEOUT_MS', 300000, 30000, 300000);
+  const budget = { calls: 0, max: intEnv('GEMINI_MAX_CALLS', 30, 2, 50) };
   while (pending.length && budget.calls < budget.max && Date.now() < deadline) {
     const task = pending.shift();
     try {
@@ -131,6 +131,8 @@ export async function runSquadPipeline({ ai, primaryModel, fallbackModel, invent
         pending.unshift(...chunks(task.indexes, smallSize).map(indexes => ({ indexes, model: task.model })));
       } else if (task.model === primaryModel && fallbackModel && ['payload_too_large', 'transient', 'rate_limit', 'malformed_response'].includes(kind)) {
         pending.unshift({ indexes: task.indexes, model: fallbackModel });
+      } else if (task.model === fallbackModel && tertiaryModel && ['payload_too_large', 'transient', 'rate_limit', 'malformed_response'].includes(kind)) {
+        pending.unshift({ indexes: task.indexes, model: tertiaryModel });
       } else failed.push({ indexes: task.indexes, code: kind });
     }
   }
@@ -184,11 +186,21 @@ export async function runSquadPipeline({ ai, primaryModel, fallbackModel, invent
     } catch (error) {
       const kind = classifyGeminiError(error);
       if (!fallbackModel || !['payload_too_large', 'transient', 'rate_limit', 'malformed_response'].includes(kind)) throw error;
-      const result = await invoke(ai, fallbackModel, makeParts(), retryLimit, budget);
-      if (!Array.isArray(result?.players)) throw Object.assign(new Error('Invalid match response'), { pipelineCode: 'malformed_response' });
-      matchedRows.push(...result.players);
-      if (Number.isInteger(result.collective_strength)) collectiveStrength = result.collective_strength;
-      modelUsed = fallbackModel;
+      try {
+        const result = await invoke(ai, fallbackModel, makeParts(), retryLimit, budget);
+        if (!Array.isArray(result?.players)) throw Object.assign(new Error('Invalid match response'), { pipelineCode: 'malformed_response' });
+        matchedRows.push(...result.players);
+        if (Number.isInteger(result.collective_strength)) collectiveStrength = result.collective_strength;
+        modelUsed = fallbackModel;
+      } catch (fallbackError) {
+        const fallbackKind = classifyGeminiError(fallbackError);
+        if (!tertiaryModel || !['payload_too_large', 'transient', 'rate_limit', 'malformed_response'].includes(fallbackKind)) throw fallbackError;
+        const result = await invoke(ai, tertiaryModel, makeParts(), retryLimit, budget);
+        if (!Array.isArray(result?.players)) throw Object.assign(new Error('Invalid match response'), { pipelineCode: 'malformed_response' });
+        matchedRows.push(...result.players);
+        if (Number.isInteger(result.collective_strength)) collectiveStrength = result.collective_strength;
+        modelUsed = tertiaryModel;
+      }
     }
   }
   const bySlot = new Map();
