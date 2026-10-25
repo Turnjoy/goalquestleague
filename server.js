@@ -588,6 +588,15 @@ async function handleExtractSquad(req, res) {
       inventoryCandidates = extracted.candidates;
     } catch (error) {
       console.error(`Squad recognition failed (${error.pipelineCode || classifyGeminiError(error)})`);
+      console.error('Full error details:', {
+        message: error.message,
+        status: error.status,
+        statusText: error.statusText,
+        code: error.code,
+        cause: error.cause,
+        pipelineCode: error.pipelineCode,
+        details: error.details
+      });
       const retryable = ['transient', 'rate_limit', 'payload_too_large'].includes(classifyGeminiError(error));
       return res.status(retryable ? 503 : 422).json({ error: retryable ? 'We could not process the screenshots right now. Please try again shortly.' : 'We could not read the screenshots completely. Check the images and try again.', code: error.pipelineCode || classifyGeminiError(error) });
     }

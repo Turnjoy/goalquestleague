@@ -41,12 +41,22 @@ async function invoke(ai, model, parts, maxAttempts, budget) {
     try {
       if (budget.calls >= budget.max) throw Object.assign(new Error('call limit'), { pipelineCode: 'CALL_LIMIT' });
       budget.calls++;
+      console.log(`Gemini API call attempt ${attempt + 1}/${maxAttempts} to model: ${model}, parts count: ${parts.length}`);
       const response = await ai.models.generateContent({ model, contents: [{ role: 'user', parts }], config: { responseMimeType: 'application/json' } });
       const parsed = parseJson(response.text);
       if (!parsed) throw Object.assign(new Error('malformed response'), { pipelineCode: 'malformed_response' });
       return parsed;
     } catch (error) {
       last = error;
+      console.error(`Gemini API call failed (attempt ${attempt + 1}/${maxAttempts}):`, {
+        model,
+        message: error.message,
+        status: error.status,
+        statusText: error.statusText,
+        code: error.code,
+        cause: error.cause,
+        classified: classifyGeminiError(error)
+      });
       const kind = error.pipelineCode || classifyGeminiError(error);
       if (kind === 'authentication' || kind === 'quota' || kind === 'invalid_request' || kind === 'provider_error' || kind === 'malformed_response') throw error;
       if (kind === 'payload_too_large') throw error;
