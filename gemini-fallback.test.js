@@ -63,6 +63,12 @@ test('Gemini can correct an OCR spelling only when it selects a supplied candida
   ] }), roster);
   assert.equal(invented.players[0].name, null);
   assert.equal(invented.players[0].matchStatus, 'manual_review');
+
+  const unrelatedCorrection = parseGeminiSquadResponse(JSON.stringify({ players: [
+    { candidate_id: 'inv-1-1', name: 'Fernando Torres', name_confidence: 0.99, rating: 97, rating_confidence: 0.9, position: 'CF', position_confidence: 0.9, area: 'starter', match_confidence: 0.99 },
+  ] }), [{ id: 'inv-1-1', name: 'Cantona', screenshot: 1 }]);
+  assert.equal(unrelatedCorrection.players[0].name, null);
+  assert.equal(unrelatedCorrection.players[0].matchStatus, 'manual_review');
 });
 
 test('Gemini full-squad request includes the pitch and every inventory screenshot', async () => {
