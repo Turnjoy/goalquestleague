@@ -69,6 +69,12 @@ test('Gemini can return only the exact name attached to its selected inventory c
   ] }), roster);
   assert.equal(mismatchedName.players[0].name, 'Cantona');
   assert.equal(mismatchedName.players[0].matchStatus, 'manual_review');
+
+  const repairedOcr = parseGeminiSquadResponse(JSON.stringify({ players: [
+    { candidate_id: 'inv-2-1', name: 'Kylian Mbappé', name_confidence: 0.93, rating: 97, rating_confidence: 0.9, position: 'CF', position_confidence: 0.9, area: 'substitute', match_confidence: 0.91 },
+  ] }), [{ id: 'inv-2-1', name: 'Mbpe', screenshot: 2 }]);
+  assert.equal(repairedOcr.players[0].name, 'Kylian Mbappé');
+  assert.equal(repairedOcr.players[0].matchStatus, 'matched');
 });
 
 test('Gemini full-squad request includes the pitch and every inventory screenshot', async () => {

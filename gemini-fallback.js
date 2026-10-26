@@ -19,6 +19,41 @@ export function parseGeminiCandidateResponse(text, candidates, minimumConfidence
   return { accepted: true, candidate, confidence, reason: String(result.reason || '').slice(0, 240), tacticalRating, tacticalPosition };
 }
 
+function normalizedNameTokens(value) {
+  return String(value || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/0/g, 'o').match(/[a-z]+/g) || [];
+}
+
+function nameTokenSimilarity(left, right) {
+  if (!left || !right) return 0;
+  let previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let row = 1; row <= left.length; row++) {
+    const current = [row];
+    for (let column = 1; column <= right.length; column++) {
+      current[column] = Math.min(current[column - 1] + 1, previous[column] + 1,
+        previous[column - 1] + (left[row - 1] === right[column - 1] ? 0 : 1));
+    }
+    previous = current;
+  }
+  return 1 - previous[right.length] / Math.max(left.length, right.length);
+}
+
+function isPlausibleOcrCorrection(ocrName, correctedName) {
+  const source = normalizedNameTokens(ocrName);
+  const corrected = normalizedNameTokens(correctedName);
+  if (!source.length || !corrected.length) return false;
+  let exactMatches = 0;
+  const allSourceWordsMatch = source.every(word => {
+    const best = Math.max(...corrected.map(candidateWord => nameTokenSimilarity(word, candidateWord)));
+    if (best === 1) exactMatches++;
+    if (best === 1) return true;
+    // Permit a single badly OCR'd word such as "Mbpe" -> "Mbappé", but
+    // reject unrelated identities such as "Cantona" -> "Torres".
+    if (source.length === 1) return word.length >= 4 && best >= 0.65;
+    return best >= 0.5;
+  });
+  return allSourceWordsMatch && (exactMatches > 0 || source.length === 1);
+}
+
 /** SDK client is injected to keep quota/error and response behavior mockable. */
 export async function askGeminiToCompare(ai, model, pitchBuffer, candidates) {
   const prompt = [
@@ -65,11 +100,12 @@ export function parseGeminiSquadResponse(text, inventoryCandidates = null) {
     const hasInventoryRoster = Array.isArray(inventoryCandidates);
     // The selected OCR candidate is the source of truth. Gemini's name text is
     // checked for consistency, but never allowed to replace that roster name.
-    const name = hasInventoryRoster
-      ? inventoryCandidate?.name || null
-      : validName && Number.isFinite(nameConfidence) && nameConfidence >= 0.7 ? responseName : null;
     const responseMatchesCandidate = !hasInventoryRoster || Boolean(inventoryCandidate
-      && responseName?.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase() === inventoryCandidate.name.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase());
+      && validName && isPlausibleOcrCorrection(inventoryCandidate.name, responseName));
+    const confidentResponseName = validName && Number.isFinite(nameConfidence) && nameConfidence >= 0.7 ? responseName : null;
+    const name = hasInventoryRoster
+      ? inventoryCandidate ? (responseMatchesCandidate && confidentResponseName ? confidentResponseName : inventoryCandidate.name) : null
+      : confidentResponseName;
     const ratingConfidence = Number(row.rating_confidence);
     const matchConfidence = Number(row.match_confidence);
     const rawRating = Number(row.rating);
@@ -120,7 +156,7 @@ export async function askGeminiToExtractSquadFromNames(ai, model, pitchBuffer, i
   const prompt = [
     'The only image in this request is the tactical squad screenshot. The roster below was extracted locally from the user’s inventory screenshots; those inventory images are not included.',
     'For each pitch card, identify the footballer from its portrait, visible flag/country, club crest, and position, then match that identity to one candidate in the OCR roster. Consider all of those clues together; position alone or a familiar name alone is not enough.',
-    'The OCR roster is the complete allowed name list. Select only a supplied candidate ID and copy that candidate name exactly into name. Never invent, substitute, canonicalize, or correct a player name. If no roster candidate clearly matches the player shown, return candidate_id null and name null with low confidence. Do not reuse a candidate ID.',
+    'The OCR roster is the complete allowed player list. Select only a supplied candidate ID. You may correct a clear OCR spelling error in name (for example, "Mbpe" to "Kylian Mbappé") only when the corrected name is a close spelling match to that selected candidate. Never replace a candidate with an unrelated player or invent an unlisted player name. If no roster candidate clearly matches the player shown, return candidate_id null and name null with low confidence. Do not reuse a candidate ID.',
     'Use the pitch screenshot for visual identity, flag/country, club crest, position, rating, and starter/substitute area. Return JSON only in this schema: {"collective_strength":null,"collective_strength_confidence":0,"players":[{"candidate_id":"inv-1-1","name":"exact OCR roster candidate name or null","name_confidence":0,"rating":null,"rating_confidence":0,"position":"CF","position_confidence":0,"area":"starter or substitute","match_confidence":0}]}.',
     `OCR roster candidates (confidence is Tesseract's estimate; low confidence may mean the spelling needs correction): ${JSON.stringify(roster)}`,
   ].join('\n');
