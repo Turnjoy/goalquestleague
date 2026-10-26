@@ -110,7 +110,7 @@ function initialBatches(items, maxSize) {
 }
 
 export async function runSquadPipeline({ ai, primaryModel, fallbackModel, tertiaryModel, inventoryBuffers, pitchBuffer, progress = () => {} }) {
-  const retryLimit = intEnv('GEMINI_RETRY_LIMIT', 3, 1, 5);
+  const retryLimit = intEnv('GEMINI_RETRY_LIMIT', 2, 1, 5);
   const firstSize = intEnv('GEMINI_BATCH_SIZE', 15, 1, 15);
   const smallSize = intEnv('GEMINI_SMALL_BATCH_SIZE', 8, 1, 8);
   const indices = inventoryBuffers.map((_, i) => i + 1);
@@ -129,15 +129,22 @@ export async function runSquadPipeline({ ai, primaryModel, fallbackModel, tertia
       const kind = error.pipelineCode || classifyGeminiError(error);
       if (task.indexes.length > smallSize && ['payload_too_large', 'transient', 'rate_limit', 'malformed_response'].includes(kind)) {
         pending.unshift(...chunks(task.indexes, smallSize).map(indexes => ({ indexes, model: task.model })));
-      } else if (task.model === primaryModel && fallbackModel && ['payload_too_large', 'transient', 'rate_limit', 'malformed_response'].includes(kind)) {
+      } else if (task.model === primaryModel && fallbackModel && ['payload_too_large', 'transient', 'rate_limit', 'quota', 'malformed_response'].includes(kind)) {
         pending.unshift({ indexes: task.indexes, model: fallbackModel });
-      } else if (task.model === fallbackModel && tertiaryModel && ['payload_too_large', 'transient', 'rate_limit', 'malformed_response'].includes(kind)) {
+      } else if (task.model === fallbackModel && tertiaryModel && ['payload_too_large', 'transient', 'rate_limit', 'quota', 'malformed_response'].includes(kind)) {
         pending.unshift({ indexes: task.indexes, model: tertiaryModel });
       } else failed.push({ indexes: task.indexes, code: kind });
     }
   }
   if (!completed.length || failed.length || pending.length) {
-    const error = new Error('Inventory processing incomplete'); error.pipelineCode = 'INVENTORY_INCOMPLETE'; error.details = { successfulCards: completed.length, failedBatches: failed.length + pending.length }; throw error;
+    const error = new Error('Inventory processing incomplete');
+    error.pipelineCode = 'INVENTORY_INCOMPLETE';
+    error.details = {
+      successfulCards: completed.length,
+      failedBatches: failed.length + pending.length,
+      failureKinds: [...new Set(failed.map(batch => batch.code))],
+    };
+    throw error;
   }
 
   // Preserve repeat instances; only remove exact duplicate observations in the same source screenshot/location.
@@ -185,7 +192,7 @@ export async function runSquadPipeline({ ai, primaryModel, fallbackModel, tertia
       if (Number.isInteger(result.collective_strength)) collectiveStrength = result.collective_strength;
     } catch (error) {
       const kind = classifyGeminiError(error);
-      if (!fallbackModel || !['payload_too_large', 'transient', 'rate_limit', 'malformed_response'].includes(kind)) throw error;
+      if (!fallbackModel || !['payload_too_large', 'transient', 'rate_limit', 'quota', 'malformed_response'].includes(kind)) throw error;
       try {
         const result = await invoke(ai, fallbackModel, makeParts(), retryLimit, budget);
         if (!Array.isArray(result?.players)) throw Object.assign(new Error('Invalid match response'), { pipelineCode: 'malformed_response' });
@@ -194,7 +201,7 @@ export async function runSquadPipeline({ ai, primaryModel, fallbackModel, tertia
         modelUsed = fallbackModel;
       } catch (fallbackError) {
         const fallbackKind = classifyGeminiError(fallbackError);
-        if (!tertiaryModel || !['payload_too_large', 'transient', 'rate_limit', 'malformed_response'].includes(fallbackKind)) throw fallbackError;
+        if (!tertiaryModel || !['payload_too_large', 'transient', 'rate_limit', 'quota', 'malformed_response'].includes(fallbackKind)) throw fallbackError;
         const result = await invoke(ai, tertiaryModel, makeParts(), retryLimit, budget);
         if (!Array.isArray(result?.players)) throw Object.assign(new Error('Invalid match response'), { pipelineCode: 'malformed_response' });
         matchedRows.push(...result.players);

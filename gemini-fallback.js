@@ -44,7 +44,7 @@ export async function askGeminiToCompare(ai, model, pitchBuffer, candidates) {
 }
 
 /** Read a complete squad image and compare every player with the uploaded inventory screens. */
-export function parseGeminiSquadResponse(text) {
+export function parseGeminiSquadResponse(text, inventoryCandidates = null) {
   let result;
   try { result = JSON.parse(String(text || '').replace(/^```(?:json)?\s*|\s*```$/g, '')); }
   catch { return { accepted: false, reason: 'invalid_json' }; }
@@ -52,8 +52,18 @@ export function parseGeminiSquadResponse(text) {
   const positions = new Set(['GK', 'CB', 'LB', 'RB', 'DMF', 'CMF', 'AMF', 'LMF', 'RMF', 'LWF', 'RWF', 'SS', 'CF']);
   const players = result.players.slice(0, 40).map((row, index) => {
     if (!row || typeof row !== 'object') return null;
-    const name = typeof row.name === 'string' && row.name.trim().length <= 80 ? row.name.trim() : null;
+    const inventoryCandidate = Array.isArray(inventoryCandidates)
+      ? inventoryCandidates.find(candidate => candidate.id === row.candidate_id)
+      : null;
+    const responseName = typeof row.name === 'string' && row.name.trim().length <= 80 ? row.name.trim() : null;
     const nameConfidence = Number(row.name_confidence);
+    const validName = responseName && responseName.length >= 2
+      && responseName.split(/\s+/u).length <= 4
+      && /^[\p{L}\p{M}'’.-]+(?:\s+[\p{L}\p{M}'’.-]+){0,3}$/u.test(responseName);
+    // Gemini may repair noisy OCR, but only for an ID supplied by local OCR
+    // and only when it is confident in the corrected spelling.
+    const name = validName && Number.isFinite(nameConfidence) && nameConfidence >= 0.7
+      && (!Array.isArray(inventoryCandidates) || Boolean(inventoryCandidate)) ? responseName : null;
     const ratingConfidence = Number(row.rating_confidence);
     const matchConfidence = Number(row.match_confidence);
     const rawRating = Number(row.rating);
@@ -62,7 +72,7 @@ export function parseGeminiSquadResponse(text) {
     const position = Number(row.position_confidence) >= 0.65 && positions.has(rawPosition) ? rawPosition : 'Unknown';
     const isStarter = row.area === 'starter' ? true : row.area === 'substitute' ? false : null;
     const screenshotNumber = Number(row.inventory_screenshot);
-    const confidentName = name && Number.isFinite(nameConfidence) && nameConfidence >= 0.7 ? name : null;
+    const confidentName = name;
     if (!confidentName && rating === null && position === 'Unknown') return null;
     const matched = Boolean(confidentName && Number.isFinite(matchConfidence) && matchConfidence >= 0.7);
     return {
@@ -79,8 +89,8 @@ export function parseGeminiSquadResponse(text) {
       matchConfidence: matched ? matchConfidence : 0,
       reviewStatus: matched ? 'matched' : 'needs_review',
       reviewReason: matched ? null : 'gemini_uncertain',
-      inventoryCardId: null,
-      inventoryScreenshot: Number.isInteger(screenshotNumber) && screenshotNumber >= 1 && screenshotNumber <= 30 ? screenshotNumber : null,
+      inventoryCardId: inventoryCandidate?.id || null,
+      inventoryScreenshot: inventoryCandidate?.screenshot || (Number.isInteger(screenshotNumber) && screenshotNumber >= 1 && screenshotNumber <= 30 ? screenshotNumber : null),
       cardVersion: null,
       region: null,
     };
@@ -94,6 +104,49 @@ export function parseGeminiSquadResponse(text) {
     ? collectiveStrengthValue
     : null;
   return { accepted: true, players, collectiveStrength };
+}
+
+/** Send one tactical screenshot plus locally OCR'd inventory names; no inventory image leaves the server. */
+export async function askGeminiToExtractSquadFromNames(ai, model, pitchBuffer, inventoryCandidates) {
+  const roster = inventoryCandidates.map(candidate => ({ id: candidate.id, name: candidate.name, ocr_confidence: candidate.confidence ?? null }));
+  const prompt = [
+    'The only image in this request is the tactical squad screenshot. The roster below was extracted locally from the user’s inventory screenshots; those inventory images are not included.',
+    'Read the players shown on the tactical screen, including starters and visible substitutes. Match each player to the most likely inventory roster candidate using the visible player identity and OCR name as evidence.',
+    'OCR names may contain typos, missing first or last names, or character recognition errors. When the pitch image identifies a well-known footballer and a supplied OCR candidate is a clear spelling variant of that same identity, return the correctly spelled canonical player name in name while preserving that candidate ID. Never change the identity to a different player just to make a name look familiar.',
+    'Examples of spelling repair only: "Achat Hakimi" can be "Achraf Hakimi"; "Vinicius Janior" can be "Vinícius Júnior"; "B0Jan Krkic" can be "Bojan Krkić". Apply a repair only when the pitch image and roster make that identity clear.',
+    'Use only candidate IDs from the supplied roster. Do not invent a roster candidate or reuse a candidate ID. Do not use rating or position alone to decide identity. If identity or spelling cannot be corrected confidently, return candidate_id null or name null with low confidence. Read tactical rating, position, and starter/substitute area from the pitch screenshot only.',
+    'Return JSON only in this schema: {"collective_strength":null,"collective_strength_confidence":0,"players":[{"candidate_id":"inv-1-1","name":"canonical corrected player name or null","name_confidence":0,"rating":null,"rating_confidence":0,"position":"CF","position_confidence":0,"area":"starter or substitute","match_confidence":0}]}.',
+    `OCR roster candidates (confidence is Tesseract's estimate; low confidence may mean the spelling needs correction): ${JSON.stringify(roster)}`,
+  ].join('\n');
+  const response = await ai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [
+      { text: prompt },
+      { inlineData: { mimeType: 'image/jpeg', data: pitchBuffer.toString('base64') } },
+    ] }],
+    config: { responseMimeType: 'application/json' },
+  });
+  return parseGeminiSquadResponse(response.text, inventoryCandidates);
+}
+
+/** Use only free-tier model IDs and make at most one request per model per submission. */
+export async function askGeminiToExtractSquadFromNamesWithFallback(ai, models, pitchBuffer, inventoryCandidates) {
+  let lastError = null;
+  let calls = 0;
+  for (const model of [...new Set(models.filter(Boolean))]) {
+    try {
+      calls++;
+      const result = await askGeminiToExtractSquadFromNames(ai, model, pitchBuffer, inventoryCandidates);
+      if (result.accepted) return { ...result, modelUsed: model, calls };
+      console.warn(`Gemini ${model} returned an uncertain roster; trying the next free-tier model.`);
+    } catch (error) {
+      lastError = error;
+      if (isNonRetryableGeminiError(error) && !/quota|billing|daily limit|monthly limit|exhausted|rate.?limit/.test(String(error.message || '').toLowerCase())) throw error;
+      console.warn(`Gemini ${model} unavailable for this request; trying the next free-tier model.`);
+    }
+  }
+  if (lastError) throw lastError;
+  return { accepted: false, reason: 'no_confident_players', calls };
 }
 
 /** Send the pitch and all uploaded inventory screenshots together in one memory-only request. */

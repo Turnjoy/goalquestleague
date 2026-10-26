@@ -8,8 +8,14 @@ import { imageHash } from 'image-hash';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 import { compareCardHashes, detectInventoryRegions, detectPitchRegionsFromPixels, detectPitchRegionsFromWords, validateCrop } from './crop-utils.js';
-import { askGeminiToCompare, askGeminiToExtractSquadWithFallback, isRetryableGeminiError } from './gemini-fallback.js';
-import { runSquadPipeline, classifyGeminiError, normalizeScreenshotPayload } from './gemini-pipeline.js';
+import { extractInventoryNames } from './inventory-ocr.js';
+import {
+  askGeminiToCompare,
+  askGeminiToExtractSquadWithFallback,
+  askGeminiToExtractSquadFromNamesWithFallback,
+  isRetryableGeminiError,
+} from './gemini-fallback.js';
+import { classifyGeminiError, normalizeScreenshotPayload } from './gemini-pipeline.js';
 
 dotenv.config();
 
@@ -86,6 +92,29 @@ async function prepareGeminiImage(buffer) {
     .resize({ width: 1440, withoutEnlargement: true })
     .jpeg({ quality: 78, mozjpeg: true })
     .toBuffer();
+}
+
+const FREE_TIER_GEMINI_MODELS = new Set([
+  'gemini-3.8-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+]);
+
+function getFreeTierGeminiModels() {
+  const configured = [
+    process.env.GEMINI_PRIMARY_MODEL || process.env.GEMINI_MODEL,
+    process.env.GEMINI_FALLBACK_MODEL,
+    process.env.GEMINI_TERTIARY_MODEL,
+  ];
+  const defaults = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
+  const models = configured.map((value, index) => {
+    if (!value) return defaults[index];
+    if (FREE_TIER_GEMINI_MODELS.has(value)) return value;
+    console.warn(`Ignoring configured Gemini model ${value}; free-tier mode only allows listed Flash models.`);
+    return defaults[index];
+  });
+  return [...new Set(models)];
 }
 
 // Stage A: Process inventory screenshots
@@ -408,7 +437,7 @@ async function matchCards(pitchCards, inventoryCards) {
   const comparisons = compareCardHashes(pitchCards, availableInventory);
   const used = new Set();
   const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { timeout: 120000, retryOptions: { attempts: 3 } } }) : null;
-  const model = process.env.GEMINI_PRIMARY_MODEL || process.env.GEMINI_MODEL || 'gemini-4-argon';
+  const model = getFreeTierGeminiModels()[0];
   let geminiCalls = 0;
   let disableGemini = !ai;
   if (!ai) console.info('Gemini fallback unavailable: GEMINI_API_KEY is not configured; uncertain identities require review');
@@ -559,34 +588,41 @@ async function handleExtractSquad(req, res) {
 
     const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY,
-      httpOptions: { timeout: 120000, retryOptions: { attempts: 3 } },
+      httpOptions: { timeout: 120000, retryOptions: { attempts: 1 } },
     }) : null;
-    const model = process.env.GEMINI_PRIMARY_MODEL || process.env.GEMINI_MODEL || 'gemini-4-argon';
-    const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.8-flash';
-    const tertiaryModel = process.env.GEMINI_TERTIARY_MODEL || 'gemini-3.6-flash';
-    console.log(`Gemini models configured - Primary: ${model}, Fallback: ${fallbackModel}, Tertiary: ${tertiaryModel}`);
-    if (!model) return res.status(503).json({ error: 'Screenshot processing is not configured.', code: 'SERVICE_NOT_CONFIGURED' });
+    const models = getFreeTierGeminiModels();
+    const model = models[0];
+    console.log(`Free-tier Gemini model chain: ${models.join(' -> ')}`);
     if (!ai) {
       console.error('Screenshot extraction is unavailable: GEMINI_API_KEY is not configured.');
       return res.status(503).json({ error: 'Gemini API key is missing on the server environment variables.' });
     }
 
-    // Require Gemini for registration extraction. Local OCR fallback produced slow,
-    // unreliable name matches when Gemini could not be reached.
     let squad;
     let squadCollectiveStrength = null;
     let squadModelUsed = model;
     let pipelineCalls = 0;
     let inventoryCandidates = [];
     try {
+      inventoryCandidates = await extractInventoryNames(buffers.slice(0, -1));
+      if (inventoryCandidates.length === 0) {
+        return res.status(422).json({
+          error: 'We could not read player names from the inventory screenshots. Use clear, full player-list screenshots and try again.',
+          code: 'INVENTORY_OCR_EMPTY',
+        });
+      }
       const pitchBuffer = await prepareGeminiImage(buffers[buffers.length - 1]);
-      const inventoryBuffers = await Promise.all(buffers.slice(0, -1).map(image => prepareGeminiImage(image)));
-      const extracted = await runSquadPipeline({ ai, primaryModel: model, fallbackModel, tertiaryModel, inventoryBuffers, pitchBuffer });
+      const extracted = await askGeminiToExtractSquadFromNamesWithFallback(ai, models, pitchBuffer, inventoryCandidates);
+      if (!extracted.accepted) {
+        return res.status(422).json({
+          error: 'We could not confidently read the tactical screenshot. Please check the extracted squad manually and try again.',
+          code: 'TACTICAL_OCR_UNCERTAIN',
+        });
+      }
       squad = extracted.players;
       squadCollectiveStrength = extracted.collectiveStrength;
       squadModelUsed = extracted.modelUsed;
       pipelineCalls = extracted.calls;
-      inventoryCandidates = extracted.candidates;
     } catch (error) {
       console.error(`Squad recognition failed (${error.pipelineCode || classifyGeminiError(error)})`);
       console.error('Full error details:', {
@@ -598,8 +634,14 @@ async function handleExtractSquad(req, res) {
         pipelineCode: error.pipelineCode,
         details: error.details
       });
-      const retryable = ['transient', 'rate_limit', 'payload_too_large'].includes(classifyGeminiError(error));
-      return res.status(retryable ? 503 : 422).json({ error: retryable ? 'We could not process the screenshots right now. Please try again shortly.' : 'We could not read the screenshots completely. Check the images and try again.', code: error.pipelineCode || classifyGeminiError(error) });
+      const errorKind = classifyGeminiError(error);
+      const retryable = ['transient', 'rate_limit', 'quota', 'payload_too_large'].includes(errorKind);
+      const message = errorKind === 'quota'
+        ? 'Gemini free-tier quota is currently unavailable for these models. Your screenshots were not saved; please try again after the quota resets.'
+        : retryable
+          ? 'We could not process the screenshots right now. Please try again shortly.'
+          : 'We could not read the screenshots completely. Check the images and try again.';
+      return res.status(retryable ? 503 : 422).json({ error: message, code: error.pipelineCode || errorKind });
     }
 
     if (squad) {
@@ -631,7 +673,7 @@ async function handleExtractSquad(req, res) {
           geminiMatches: matchedPlayers,
           localMatches: 0,
           manualReview: squad.length - matchedPlayers,
-          mode: 'gemini_full_squad',
+          mode: 'tesseract_inventory_names_single_pitch_image',
           model: squadModelUsed,
           processingStatus: 'complete',
           geminiCalls: pipelineCalls,
