@@ -49,26 +49,26 @@ test('Gemini squad response validates and returns names and ratings from the pit
   assert.equal(parseGeminiSquadResponse('not json').reason, 'invalid_json');
 });
 
-test('Gemini can correct an OCR spelling only when it selects a supplied candidate', () => {
-  const roster = [{ id: 'inv-1-1', name: 'Achat Hakimi', screenshot: 1 }];
-  const corrected = parseGeminiSquadResponse(JSON.stringify({ players: [
-    { candidate_id: 'inv-1-1', name: 'Achraf Hakimi', name_confidence: 0.94, rating: 103, rating_confidence: 0.9, position: 'RB', position_confidence: 0.9, area: 'starter', match_confidence: 0.9 },
+test('Gemini can return only the exact name attached to its selected inventory candidate', () => {
+  const roster = [{ id: 'inv-1-1', name: 'Cantona', screenshot: 1 }];
+  const exact = parseGeminiSquadResponse(JSON.stringify({ players: [
+    { candidate_id: 'inv-1-1', name: 'Cantona', name_confidence: 0.94, rating: 97, rating_confidence: 0.9, position: 'CF', position_confidence: 0.9, area: 'starter', match_confidence: 0.9 },
   ] }), roster);
-  assert.equal(corrected.players[0].name, 'Achraf Hakimi');
-  assert.equal(corrected.players[0].inventoryCardId, 'inv-1-1');
-  assert.equal(corrected.players[0].matchStatus, 'matched');
+  assert.equal(exact.players[0].name, 'Cantona');
+  assert.equal(exact.players[0].inventoryCardId, 'inv-1-1');
+  assert.equal(exact.players[0].matchStatus, 'matched');
 
   const invented = parseGeminiSquadResponse(JSON.stringify({ players: [
-    { candidate_id: 'not-in-roster', name: 'Achraf Hakimi', name_confidence: 0.99, rating: 103, rating_confidence: 0.9, position: 'RB', position_confidence: 0.9, area: 'starter', match_confidence: 0.99 },
+    { candidate_id: 'not-in-roster', name: 'Fernando Torres', name_confidence: 0.99, rating: 97, rating_confidence: 0.9, position: 'CF', position_confidence: 0.9, area: 'starter', match_confidence: 0.99 },
   ] }), roster);
   assert.equal(invented.players[0].name, null);
   assert.equal(invented.players[0].matchStatus, 'manual_review');
 
-  const unrelatedCorrection = parseGeminiSquadResponse(JSON.stringify({ players: [
+  const mismatchedName = parseGeminiSquadResponse(JSON.stringify({ players: [
     { candidate_id: 'inv-1-1', name: 'Fernando Torres', name_confidence: 0.99, rating: 97, rating_confidence: 0.9, position: 'CF', position_confidence: 0.9, area: 'starter', match_confidence: 0.99 },
-  ] }), [{ id: 'inv-1-1', name: 'Cantona', screenshot: 1 }]);
-  assert.equal(unrelatedCorrection.players[0].name, null);
-  assert.equal(unrelatedCorrection.players[0].matchStatus, 'manual_review');
+  ] }), roster);
+  assert.equal(mismatchedName.players[0].name, 'Cantona');
+  assert.equal(mismatchedName.players[0].matchStatus, 'manual_review');
 });
 
 test('Gemini full-squad request includes the pitch and every inventory screenshot', async () => {
