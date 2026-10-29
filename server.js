@@ -640,14 +640,27 @@ async function handleExtractSquad(req, res) {
 
       try {
         // Stage A: Process inventory screenshots with Tesseract
+        console.log('Stage A: Processing inventory screenshots with Tesseract OCR...');
         const inventoryCards = await processInventoryScreenshots(inventoryImages);
+        console.log(`Stage A Complete: Extracted ${inventoryCards.length} inventory cards with names`);
+        console.log('Sample inventory cards:', inventoryCards.slice(0, 3).map(c => ({ name: c.playerName, rating: c.rating, position: c.position })));
 
         // Stage B: Process pitch screenshot with Tesseract + visual detection
+        console.log('Stage B: Processing pitch screenshot with Tesseract + visual detection...');
         const pitchResult = await processPitchScreenshot(pitchImage);
         const pitchCards = pitchResult.cards;
+        console.log(`Stage B Complete: Detected ${pitchCards.length} pitch cards`);
+        console.log('Sample pitch cards:', pitchCards.slice(0, 3).map(c => ({ rating: c.rating, position: c.position, isStarter: c.isStarter })));
 
         // Stage C: Match pitch cards to inventory using local hash comparison
+        console.log('Stage C: Matching pitch cards to inventory using hash comparison...');
         const matchedSquad = await matchCards(pitchCards, inventoryCards);
+        console.log(`Stage C Complete: Matched ${matchedSquad.length} players`);
+        console.log('Match breakdown:', {
+          local: matchedSquad.filter(p => p.matchMethod === 'local').length,
+          gemini: matchedSquad.filter(p => p.matchMethod === 'gemini').length,
+          manual_review: matchedSquad.filter(p => p.matchMethod === 'manual_review').length,
+        });
 
         // Transform to match the expected schema
         squad = matchedSquad.map(player => ({
@@ -669,6 +682,10 @@ async function handleExtractSquad(req, res) {
           region: player.region,
         }));
 
+        // Count named vs unnamed players
+        const namedPlayers = squad.filter(p => p.name && p.name !== 'Unknown').length;
+        console.log(`Final squad: ${squad.length} total players, ${namedPlayers} with names, ${squad.length - namedPlayers} without names`);
+
         squadCollectiveStrength = null; // Local pipeline doesn't calculate collective strength
         squadModelUsed = 'tesseract-opencv';
         pipelineCalls = 0;
@@ -685,9 +702,10 @@ async function handleExtractSquad(req, res) {
         }));
 
         console.log('=== Local Tesseract + OpenCV Pipeline Succeeded ===');
-        console.log(`Extracted ${squad.length} players via local processing`);
+        console.log(`Successfully extracted ${squad.length} players via local processing (${namedPlayers} named)`);
       } catch (localError) {
         console.error('Local fallback pipeline also failed:', localError.message);
+        console.error('Local error stack:', localError.stack);
         return res.status(422).json({
           error: 'Both Gemini and local processing failed. Please check your screenshots and try again.',
           code: 'ALL_PIPELINES_FAILED',
