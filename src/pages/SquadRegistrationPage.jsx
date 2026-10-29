@@ -189,6 +189,9 @@ function SquadRegistrationContent() {
         healthUrl: `${API_BASE_URL}/api/health`,
         signal: controller.signal,
         onWaking: () => setAiStage('waking'),
+        attempts: 12,  // Increased from 8 to 12
+        intervalMs: 5000,  // Increased from 3000 to 5000ms
+        timeoutMs: 20000,  // Increased from 12000 to 20000ms
       });
 
       setAiStage('processing');
