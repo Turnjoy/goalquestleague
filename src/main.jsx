@@ -9,8 +9,10 @@ import DashboardPage from './pages/DashboardPage.jsx';
 import FixturesPage from './pages/FixturesPage.jsx';
 import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import LandingPage from './pages/LandingPage.jsx';
+import LeaderboardPage from './pages/LeaderboardPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
+import RulesPage from './pages/RulesPage.jsx';
 import SquadRegistrationPage from './pages/SquadRegistrationPage.jsx';
 import StandingsPage from './pages/StandingsPage.jsx';
 import TransferWindowPage from './pages/TransferWindowPage.jsx';
@@ -24,6 +26,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Routes>
             <Route element={<App />}>
               <Route index element={<LandingPage />} />
+              <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route path="/rules" element={<RulesPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />

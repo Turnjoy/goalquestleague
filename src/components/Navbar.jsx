@@ -10,6 +10,11 @@ const links = [
   { to: '/standings', label: 'Standings' },
 ];
 
+const publicLinks = [
+  { to: '/leaderboard', label: 'Leaderboard' },
+  { to: '/rules', label: 'Rules' },
+];
+
 export default function Navbar() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
@@ -53,6 +58,21 @@ export default function Navbar() {
           {/* Desktop navigation */}
           <div className="hidden lg:flex flex-wrap items-center gap-2 w-full lg:w-auto">
             <div className="flex flex-wrap items-center gap-2">
+              {publicLinks.map((link) => (
+                <NavLink
+                  key={link.to}
+                  to={link.to}
+                  className={({ isActive }) =>
+                    `rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                      isActive
+                        ? 'bg-amber-500 dark:bg-amber-500/20 text-white dark:text-amber-400'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`
+                  }
+                >
+                  {link.label}
+                </NavLink>
+              ))}
               {profile && links.map((link) => (
                 <NavLink
                   key={link.to}
@@ -111,6 +131,22 @@ export default function Navbar() {
           {isMobileMenuOpen && (
             <div className="lg:hidden w-full flex flex-col gap-3 py-4 border-t border-slate-200 dark:border-slate-700 mt-4">
               <div className="flex flex-col gap-2">
+                {publicLinks.map((link) => (
+                  <NavLink
+                    key={link.to}
+                    to={link.to}
+                    onClick={closeMobileMenu}
+                    className={({ isActive }) =>
+                      `rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                        isActive
+                          ? 'bg-amber-500 dark:bg-amber-500/20 text-white dark:text-amber-400'
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      }`
+                    }
+                  >
+                    {link.label}
+                  </NavLink>
+                ))}
                 {profile && links.map((link) => (
                   <NavLink
                     key={link.to}

@@ -1,5 +1,7 @@
 import { UserPlus } from 'lucide-react';
 import { useState } from 'react';
+import SeoMeta from '../components/SeoMeta.jsx';
+import { PUBLIC_SEO } from '../lib/publicSeo.js';
 import { Link } from 'react-router-dom';
 import { isSupabaseConfigured, supabase } from '../lib/supabase.js';
 
@@ -177,6 +179,7 @@ export default function RegisterPage() {
 
   return (
     <section className="flex min-h-screen items-center justify-center bg-frost px-4 py-8">
+      <SeoMeta {...PUBLIC_SEO.registration} />
       <form onSubmit={handleSubmit} className="w-full max-w-xl space-y-4 rounded-md border border-slate-200 bg-white p-6 shadow-panel">
         <div className="flex items-center gap-3">
           <img src="/goalquest-logo.webp" alt="GoalQuest League logo" className="h-16 w-24 rounded object-cover" />

@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /fixtures
+Disallow: /forgot-password
+Disallow: /login
+Disallow: /squad-registration
+Disallow: /standings
+Disallow: /transfer-window
+Sitemap: https://goalquestleague.com.ng/sitemap.xml

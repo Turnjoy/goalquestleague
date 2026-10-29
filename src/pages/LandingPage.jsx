@@ -2,6 +2,8 @@ import { BadgeDollarSign, Download, Handshake, LogIn, Trophy, UserPlus, Verified
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DIVISIONS } from '../lib/divisions.js';
+import SeoMeta from '../components/SeoMeta.jsx';
+import { PUBLIC_SEO } from '../lib/publicSeo.js';
 
 export default function LandingPage() {
   const [installPrompt, setInstallPrompt] = useState(null);
@@ -30,6 +32,7 @@ export default function LandingPage() {
 
   return (
     <div className="bg-frost">
+      <SeoMeta {...PUBLIC_SEO.home} />
       <section className="relative isolate min-h-[88vh] overflow-hidden bg-ink text-white">
         <img
           src="/goalquest-logo.webp"
@@ -43,14 +46,18 @@ export default function LandingPage() {
               <Trophy className="h-4 w-4" />
               GoalQuest League
             </div>
-            <h1 className="text-4xl font-black leading-tight sm:text-6xl">Competitive eFootball league management for serious players.</h1>
-            <p className="mt-5 max-w-2xl text-lg font-semibold text-slate-200">
-              Powered by Turnjoy Innovation Services
+            <h1 className="text-4xl font-black leading-tight sm:text-6xl">GoalQuest League: eFootball Mobile Tournaments in Nigeria</h1>
+            <p className="mt-5 max-w-2xl text-lg font-semibold leading-8 text-slate-200">
+              Compete in a structured eFootball mobile tournament, submit match scores, follow your division, and take your next step as a competitive gamer. Event entry fees and prizes are published with each tournament.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link to="/register" className="inline-flex items-center gap-2 rounded bg-gold px-5 py-3 text-sm font-black text-ink hover:bg-amber-400">
                 <UserPlus className="h-4 w-4" />
                 Join League
+              </Link>
+              <Link to="/leaderboard" className="inline-flex items-center gap-2 rounded border border-white/35 px-5 py-3 text-sm font-black text-white hover:bg-white/10">
+                <Trophy className="h-4 w-4" />
+                Explore the League
               </Link>
               <Link to="/login" className="inline-flex items-center gap-2 rounded border border-white/35 px-5 py-3 text-sm font-black text-white hover:bg-white/10">
                 <LogIn className="h-4 w-4" />
@@ -75,6 +82,16 @@ export default function LandingPage() {
               </div>
             ))}
           </dl>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="max-w-4xl">
+          <p className="text-sm font-black uppercase tracking-wide text-pitch">A league built around fair competition</p>
+          <h2 className="mt-2 text-3xl font-black">Join an eFootball online league in Nigeria</h2>
+          <p className="mt-3 leading-7 text-slate-700">
+            GoalQuest League brings eFootball mobile players together through organized divisions, scheduled fixtures, score confirmation, and standings. Whether you are looking for a paid eFootball mobile tournament or a place to develop your competitive record, review each event’s details and find the format that fits you.
+          </p>
         </div>
       </section>
 
@@ -112,6 +129,26 @@ export default function LandingPage() {
       </section>
 
       <section className="mx-auto w-full max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
+        <div className="grid gap-6 rounded-md border border-slate-200 bg-white p-6 shadow-panel dark:border-slate-700 dark:bg-slate-900 md:grid-cols-2 md:items-center">
+          <div>
+            <p className="text-sm font-black uppercase tracking-wide text-pitch">Your path into the league</p>
+            <h2 className="mt-2 text-3xl font-black">How to join GoalQuest League</h2>
+            <p className="mt-3 leading-7 text-slate-600 dark:text-slate-300">
+              Complete the eFootball online league registration form with your player and team details. After review and approval, sign in to follow your fixtures, submit scores, and track your division progress.
+            </p>
+          </div>
+          <ol className="space-y-3 text-sm font-semibold leading-6 text-slate-700 dark:text-slate-300">
+            <li><span className="font-black text-pitch">1.</span> Register your player profile and team.</li>
+            <li><span className="font-black text-pitch">2.</span> Wait for the league team to review your application.</li>
+            <li><span className="font-black text-pitch">3.</span> Once approved, sign in to manage fixtures and standings.</li>
+          </ol>
+          <Link to="/register" className="inline-flex w-fit rounded bg-ink px-5 py-3 text-sm font-black text-white hover:bg-navy md:col-span-2">
+            Start registration
+          </Link>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
         <div className="mb-5">
           <p className="text-sm font-black uppercase tracking-wide text-pitch">Built for momentum</p>
           <h2 className="mt-1 text-3xl font-black">Grow &amp; Earn With Us</h2>
@@ -128,6 +165,27 @@ export default function LandingPage() {
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{copy}</p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
+        <div className="grid gap-6 md:grid-cols-2">
+          <article className="rounded-md border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">
+            <h2 className="text-2xl font-black">eFootball score submission and tournament rules</h2>
+            <p className="mt-3 leading-7 text-slate-600 dark:text-slate-300">
+              Submit the score you played and give your opponent a chance to confirm it. Confirmed results update the league table; disagreements follow the review process. Check the rules and event instructions before each match.
+            </p>
+            <Link to="/rules" className="mt-4 inline-flex font-black text-pitch underline">Read the tournament rules</Link>
+          </article>
+          <article className="rounded-md border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">
+            <h2 className="text-2xl font-black">Paid eFootball tournaments and prize payouts</h2>
+            <p className="mt-3 leading-7 text-slate-600 dark:text-slate-300">
+              Selected events may be an eFootball money tournament with cash prizes. Entry fees, prize amounts, eligibility, verification, and payout timing depend on the published terms for that event. Review those details before entering; prizes are not guaranteed by registration alone.
+            </p>
+            <p className="mt-3 text-sm font-semibold text-slate-600 dark:text-slate-400">
+              Compete, grow your record, and work toward the opportunity to win cash playing eFootball.
+            </p>
+          </article>
         </div>
       </section>
 
