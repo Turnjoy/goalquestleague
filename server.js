@@ -603,28 +603,27 @@ async function handleExtractSquad(req, res) {
     let squadModelUsed = model;
     let pipelineCalls = 0;
     let inventoryCandidates = [];
+    let processingMode = 'gemini';
+
     try {
+      // PRIMARY: Try Gemini vision pipeline
+      console.log('=== Attempting Gemini Vision Pipeline ===');
       inventoryCandidates = await extractInventoryNames(buffers.slice(0, -1));
       if (inventoryCandidates.length === 0) {
-        return res.status(422).json({
-          error: 'We could not read player names from the inventory screenshots. Use clear, full player-list screenshots and try again.',
-          code: 'INVENTORY_OCR_EMPTY',
-        });
+        throw new Error('INVENTORY_OCR_EMPTY');
       }
       const pitchBuffer = await prepareGeminiImage(buffers[buffers.length - 1]);
       const extracted = await askGeminiToExtractSquadFromNamesWithFallback(ai, models, pitchBuffer, inventoryCandidates);
       if (!extracted.accepted) {
-        return res.status(422).json({
-          error: 'We could not confidently read the tactical screenshot. Please check the extracted squad manually and try again.',
-          code: 'TACTICAL_OCR_UNCERTAIN',
-        });
+        throw new Error('TACTICAL_OCR_UNCERTAIN');
       }
       squad = extracted.players;
       squadCollectiveStrength = extracted.collectiveStrength;
       squadModelUsed = extracted.modelUsed;
       pipelineCalls = extracted.calls;
+      console.log('=== Gemini Vision Pipeline Succeeded ===');
     } catch (error) {
-      console.error(`Squad recognition failed (${error.pipelineCode || classifyGeminiError(error)})`);
+      console.error(`Gemini Vision Pipeline failed: ${error.message}`);
       console.error('Full error details:', {
         message: error.message,
         status: error.status,
@@ -634,21 +633,76 @@ async function handleExtractSquad(req, res) {
         pipelineCode: error.pipelineCode,
         details: error.details
       });
-      const errorKind = classifyGeminiError(error);
-      const retryable = ['transient', 'rate_limit', 'quota', 'payload_too_large'].includes(errorKind);
-      const message = errorKind === 'quota'
-        ? 'Gemini free-tier quota is currently unavailable for these models. Your screenshots were not saved; please try again after the quota resets.'
-        : retryable
-          ? 'We could not process the screenshots right now. Please try again shortly.'
-          : 'We could not read the screenshots completely. Check the images and try again.';
-      return res.status(retryable ? 503 : 422).json({ error: message, code: error.pipelineCode || errorKind });
+
+      // FALLBACK: Use local Tesseract + OpenCV processing
+      console.log('=== Falling back to Local Tesseract + OpenCV Pipeline ===');
+      processingMode = 'local';
+
+      try {
+        // Stage A: Process inventory screenshots with Tesseract
+        const inventoryCards = await processInventoryScreenshots(inventoryImages);
+
+        // Stage B: Process pitch screenshot with Tesseract + visual detection
+        const pitchResult = await processPitchScreenshot(pitchImage);
+        const pitchCards = pitchResult.cards;
+
+        // Stage C: Match pitch cards to inventory using local hash comparison
+        const matchedSquad = await matchCards(pitchCards, inventoryCards);
+
+        // Transform to match the expected schema
+        squad = matchedSquad.map(player => ({
+          id: player.id,
+          name: player.name || null,
+          rating: player.rating,
+          position: player.position,
+          tacticalPosition: player.position,
+          registeredPosition: player.registeredPosition || null,
+          isStarter: player.isStarter,
+          area: player.area,
+          matchMethod: player.matchMethod,
+          matchStatus: player.matchStatus,
+          matchConfidence: player.matchConfidence,
+          reviewStatus: player.reviewStatus,
+          reviewReason: player.reviewReason,
+          inventoryCardId: player.inventoryCardId,
+          cardVersion: player.cardVersion,
+          region: player.region,
+        }));
+
+        squadCollectiveStrength = null; // Local pipeline doesn't calculate collective strength
+        squadModelUsed = 'tesseract-opencv';
+        pipelineCalls = 0;
+
+        // Map inventory cards to candidate format
+        inventoryCandidates = inventoryCards.map(card => ({
+          id: card.id,
+          name: card.playerName,
+          rating: card.rating,
+          position: card.position,
+          screenshot: card.sourceImage,
+          location: card.region ? `${card.region.left},${card.region.top}` : null,
+          confidence: card.nameConfidence,
+        }));
+
+        console.log('=== Local Tesseract + OpenCV Pipeline Succeeded ===');
+        console.log(`Extracted ${squad.length} players via local processing`);
+      } catch (localError) {
+        console.error('Local fallback pipeline also failed:', localError.message);
+        return res.status(422).json({
+          error: 'Both Gemini and local processing failed. Please check your screenshots and try again.',
+          code: 'ALL_PIPELINES_FAILED',
+        });
+      }
     }
 
     if (squad) {
       squad.sort((a, b) => (b.isStarter === true) - (a.isStarter === true) || (b.rating || 0) - (a.rating || 0));
       const matchedPlayers = squad.filter(player => player.matchStatus === 'matched').length;
+      const localMatches = squad.filter(player => player.matchMethod === 'local').length;
+      const geminiMatches = squad.filter(player => player.matchMethod === 'gemini').length;
       const starters = squad.filter(player => player.isStarter === true).length;
       const substitutes = squad.filter(player => player.isStarter === false).length;
+
       return res.json({
         success: true,
         squad,
@@ -670,13 +724,14 @@ async function handleExtractSquad(req, res) {
           manualReviewPlayers: squad.length - matchedPlayers,
           starters,
           substitutes,
-          geminiMatches: matchedPlayers,
-          localMatches: 0,
+          geminiMatches: processingMode === 'gemini' ? matchedPlayers : geminiMatches,
+          localMatches: processingMode === 'local' ? matchedPlayers : localMatches,
           manualReview: squad.length - matchedPlayers,
-          mode: 'tesseract_inventory_names_single_pitch_image',
+          mode: processingMode === 'gemini' ? 'tesseract_inventory_names_single_pitch_image' : 'tesseract_opencv_full_pipeline',
           model: squadModelUsed,
           processingStatus: 'complete',
           geminiCalls: pipelineCalls,
+          processingPipeline: processingMode,
         },
       });
     }
