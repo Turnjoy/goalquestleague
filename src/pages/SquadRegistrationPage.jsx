@@ -837,5 +837,5 @@ function SquadRegistrationContent() {
 }
 
 export default function SquadRegistrationPage() {
-  return <ProtectedRoute><SquadRegistrationContent /></ProtectedRoute>;
+  return <SquadRegistrationContent />;
 }
