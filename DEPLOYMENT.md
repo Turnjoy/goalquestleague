@@ -38,9 +38,9 @@ The health endpoint is `GET /api/health`. The screenshot endpoint is `POST /api/
 
 ## Processing and limitations
 
-Inventory images are split into two initial batches (at most 15 each), extracted independently, and retained after success. Recoverable failures are split into batches of at most 8, with fallback model attempts only for eligible errors. Tactical matching runs separately using the tactical screenshot and structured inventory candidates. The response retains the registration page's `success`, `squad`, `players`, and `stats` fields. Unmatched/ambiguous records remain marked for review.
+The primary Gemini vision flow is attempted first. On any failure, including timeouts and provider/network errors, or when `GEMINI_API_KEY` is not configured, the server runs the local Tesseract and Sharp-based image-processing pipeline. That fallback reads inventory names locally, detects pitch cards with OCR and pixel-based color regions, and cross-references card and portrait hashes to inventory cards. It does not make additional Gemini requests. Both routes return the registration page's `success`, `squad`, `players`, and `stats` fields; unmatched/ambiguous records remain marked for review.
 
-The endpoint is synchronous. The frontend request timeout is 320 seconds and the server's default pipeline budget is 260 seconds. Provider latency and the hosting proxy's request duration can still cause a timeout; if that happens, the browser reports an incomplete attempt and the user can retry. No durable job queue or screenshot persistence is configured. No live Gemini success is implied by mocked tests; verify model access and quota with the deployment's own credentials.
+The endpoint is synchronous. The frontend request timeout is 320 seconds and the server's default pipeline budget is 260 seconds. Provider latency and the hosting proxy's request duration can still cause a timeout; the local fallback handles provider failures within the active request, but cannot guarantee availability if the server or local OCR/image-processing resources fail. No durable job queue or screenshot persistence is configured. No live Gemini success is implied by mocked tests; verify model access and quota with the deployment's own credentials.
 
 ## Local run and checks
 

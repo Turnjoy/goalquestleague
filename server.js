@@ -430,17 +430,18 @@ function extractRating(text) {
   return 0; // Default if no rating found
 }
 
-// Stage C: local portrait match first; Gemini sees only unresolved cards and top candidates.
-async function matchCards(pitchCards, inventoryCards) {
+// Stage C: match local card crops and inventory candidates by visual similarity.
+async function matchCards(pitchCards, inventoryCards, { allowGemini = true } = {}) {
   if (!pitchCards?.length) return [];
   const availableInventory = Array.isArray(inventoryCards) ? inventoryCards : [];
   const comparisons = compareCardHashes(pitchCards, availableInventory);
   const used = new Set();
-  const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { timeout: 120000, retryOptions: { attempts: 3 } } }) : null;
+  const ai = allowGemini && process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { timeout: 120000, retryOptions: { attempts: 3 } } }) : null;
   const model = getFreeTierGeminiModels()[0];
   let geminiCalls = 0;
   let disableGemini = !ai;
-  if (!ai) console.info('Gemini fallback unavailable: GEMINI_API_KEY is not configured; uncertain identities require review');
+  if (!allowGemini) console.info('Local fallback matching is running without additional Gemini requests');
+  else if (!ai) console.info('Gemini fallback unavailable: GEMINI_API_KEY is not configured; uncertain identities require review');
   else console.log(`Gemini fallback model configured: ${model}`);
 
   const records = [];
@@ -519,6 +520,7 @@ async function matchCards(pitchCards, inventoryCards) {
       reviewStatus,
       reviewReason: reason,
       inventoryCardId: candidate?.id || null,
+      inventoryScreenshot: Number.isInteger(candidate?.sourceImage) ? candidate.sourceImage + 1 : null,
       cardVersion: candidate?.cardVersion || null,
       region: pitch.region,
     };
@@ -586,17 +588,9 @@ async function handleExtractSquad(req, res) {
     console.log(`Received ${inventoryImages.length} inventory images and 1 pitch image`);
     console.log('Gemini API Key loaded:', !!process.env.GEMINI_API_KEY);
 
-    const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-      httpOptions: { timeout: 120000, retryOptions: { attempts: 1 } },
-    }) : null;
     const models = getFreeTierGeminiModels();
     const model = models[0];
     console.log(`Free-tier Gemini model chain: ${models.join(' -> ')}`);
-    if (!ai) {
-      console.error('Screenshot extraction is unavailable: GEMINI_API_KEY is not configured.');
-      return res.status(503).json({ error: 'Gemini API key is missing on the server environment variables.' });
-    }
 
     let squad;
     let squadCollectiveStrength = null;
@@ -608,6 +602,13 @@ async function handleExtractSquad(req, res) {
     try {
       // PRIMARY: Try Gemini vision pipeline
       console.log('=== Attempting Gemini Vision Pipeline ===');
+      if (!process.env.GEMINI_API_KEY) {
+        throw Object.assign(new Error('GEMINI_API_KEY is not configured'), { pipelineCode: 'GEMINI_NOT_CONFIGURED' });
+      }
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: { timeout: 120000, retryOptions: { attempts: 1 } },
+      });
       inventoryCandidates = await extractInventoryNames(buffers.slice(0, -1));
       if (inventoryCandidates.length === 0) {
         throw new Error('INVENTORY_OCR_EMPTY');
@@ -654,7 +655,7 @@ async function handleExtractSquad(req, res) {
 
         // Stage C: Match pitch cards to inventory using local hash comparison
         console.log('Stage C: Matching pitch cards to inventory using hash comparison...');
-        const matchedSquad = await matchCards(pitchCards, inventoryCards);
+        const matchedSquad = await matchCards(pitchCards, inventoryCards, { allowGemini: false });
         console.log(`Stage C Complete: Matched ${matchedSquad.length} players`);
         console.log('Match breakdown:', {
           local: matchedSquad.filter(p => p.matchMethod === 'local').length,
@@ -678,6 +679,7 @@ async function handleExtractSquad(req, res) {
           reviewStatus: player.reviewStatus,
           reviewReason: player.reviewReason,
           inventoryCardId: player.inventoryCardId,
+          inventoryScreenshot: player.inventoryScreenshot,
           cardVersion: player.cardVersion,
           region: player.region,
         }));
