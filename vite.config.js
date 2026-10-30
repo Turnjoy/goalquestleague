@@ -11,6 +11,7 @@ export default defineConfig({
       devOptions: {
         enabled: true
       },
+      strategies: 'generateSW',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
         runtimeCaching: [
@@ -28,7 +29,9 @@ export default defineConfig({
               }
             }
           }
-        ]
+        ],
+        cleanupOutdatedCaches: true,
+        skipWaiting: true
       },
       manifest: {
         name: 'GoalQuest League',
