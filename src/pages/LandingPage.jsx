@@ -4,9 +4,12 @@ import { Link } from 'react-router-dom';
 import { DIVISIONS } from '../lib/divisions.js';
 import SeoMeta from '../components/SeoMeta.jsx';
 import { PUBLIC_SEO } from '../lib/publicSeo.js';
+import { showInstallPrompt, subscribeToInstallPrompt } from '../lib/pwaInstall.js';
 
 export default function LandingPage() {
   const [installPrompt, setInstallPrompt] = useState(null);
+  const [installHelp, setInstallHelp] = useState('');
+  const [installed, setInstalled] = useState(false);
   const [selectedDivision, setSelectedDivision] = useState(DIVISIONS[0].name);
 
   const selected = useMemo(
@@ -15,19 +18,24 @@ export default function LandingPage() {
   );
 
   useEffect(() => {
-    function handleBeforeInstallPrompt(event) {
-      event.preventDefault();
-      setInstallPrompt(event);
-    }
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return subscribeToInstallPrompt(setInstallPrompt);
   }, []);
 
   async function handleInstall() {
-    if (!installPrompt) return;
-    await installPrompt.prompt();
-    setInstallPrompt(null);
+    setInstallHelp('');
+    if (!installPrompt) {
+      setInstallHelp('To install, open your browser menu and choose “Install app” or “Add to Home Screen.” On iPhone or iPad, open this page in Safari, tap Share, then Add to Home Screen.');
+      return;
+    }
+
+    try {
+      const accepted = await showInstallPrompt();
+      if (accepted) setInstalled(true);
+      else setInstallHelp('Installation was cancelled. You can try again from your browser menu.');
+    } catch (error) {
+      console.error('PWA installation prompt failed:', error);
+      setInstallHelp('The browser could not open the installation prompt. Try “Install app” in your browser menu.');
+    }
   }
 
   return (
@@ -63,13 +71,16 @@ export default function LandingPage() {
                 <LogIn className="h-4 w-4" />
                 Player Login
               </Link>
-              {installPrompt && (
-                <button type="button" onClick={handleInstall} className="inline-flex items-center gap-2 rounded bg-white px-5 py-3 text-sm font-black text-ink hover:bg-slate-100">
-                  <Download className="h-4 w-4" />
-                  Install App
-                </button>
-              )}
+              <button type="button" onClick={handleInstall} className="inline-flex items-center gap-2 rounded bg-white px-5 py-3 text-sm font-black text-ink hover:bg-slate-100">
+                <Download className="h-4 w-4" />
+                {installed ? 'App Installed' : 'Install App'}
+              </button>
             </div>
+            {installHelp && (
+              <p role="status" className="mt-4 max-w-2xl rounded border border-white/30 bg-white/10 p-3 text-sm font-semibold leading-6 text-white">
+                {installHelp}
+              </p>
+            )}
           </div>
           <dl className="mt-12 grid max-w-4xl gap-3 sm:grid-cols-3">
             {[

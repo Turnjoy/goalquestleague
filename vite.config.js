@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['goalquest-logo.webp'],
+      includeAssets: ['favicon-32x32.png', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       devOptions: {
         enabled: true
       },
@@ -41,9 +41,15 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: '/goalquest-logo.webp',
+            src: '/pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/webp',
+            type: 'image/png',
             purpose: 'any maskable'
           }
         ]
