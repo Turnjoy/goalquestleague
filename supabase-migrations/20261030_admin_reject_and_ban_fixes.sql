@@ -52,6 +52,8 @@ end;
 $$;
 grant execute on function public.admin_reject_player(uuid) to authenticated;
 
+drop function if exists public.admin_reassign_player(text, uuid);
+
 create or replace function public.admin_reassign_player(player_id_input uuid, division_input text)
 returns void
 language plpgsql

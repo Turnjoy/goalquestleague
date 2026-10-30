@@ -15,7 +15,7 @@
   "dependencies": {
     "@google/genai": "^2.30.0",
     "@google/generative-ai": "^0.24.1",
-    "@supabase/supabase-js": "^2.55.0",
+    "@supabase/supabase-js": "^2.118.0",
     "concurrently": "^10.0.6",
     "cors": "^2.8.6",
     "dotenv": "^18.0.8",

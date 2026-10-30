@@ -253,6 +253,8 @@ end;
 $$;
 grant execute on function public.admin_reject_player(uuid) to authenticated;
 
+drop function if exists public.admin_reassign_player(text, uuid);
+
 create or replace function public.admin_reassign_player(player_id_input uuid, division_input text)
 returns void
 language plpgsql
@@ -289,17 +291,6 @@ begin
 end;
 $$;
 grant execute on function public.admin_reassign_player(uuid, text) to authenticated;
-
-create or replace function public.admin_reassign_player(division_input text, player_id_input uuid)
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  perform public.admin_reassign_player(player_id_input, division_input);
-end;
-$$;
 
 create or replace function public.place_approved_player()
 returns trigger
