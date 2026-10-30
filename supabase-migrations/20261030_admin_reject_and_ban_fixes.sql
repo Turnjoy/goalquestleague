@@ -52,6 +52,45 @@ end;
 $$;
 grant execute on function public.admin_reject_player(uuid) to authenticated;
 
+create or replace function public.admin_reassign_player(player_id_input uuid, division_input text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_player public.profiles%rowtype;
+begin
+  if not public.is_admin() then
+    raise exception 'Admin access required';
+  end if;
+
+  select * into target_player
+  from public.profiles
+  where id = player_id_input
+  for update;
+  if not found then
+    raise exception 'Player not found';
+  end if;
+
+  perform 1
+  from public.division_catalog
+  where name = division_input;
+  if not found then
+    raise exception 'Unknown division: %', division_input;
+  end if;
+
+  -- Admin reassignment intentionally bypasses automatic slot-capacity allocation.
+  update public.profiles
+  set division = division_input
+  where id = player_id_input;
+
+  insert into public.admin_audit_logs (admin_id, action, target_player_id, notes)
+  values (auth.uid(), 'reassign_player', player_id_input, 'Division: ' || division_input);
+end;
+$$;
+grant execute on function public.admin_reassign_player(uuid, text) to authenticated;
+
 create or replace function public.admin_permanent_ban_player(
   player_id_input uuid,
   ban_reason_input text,
