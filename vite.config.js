@@ -8,6 +8,25 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['goalquest-logo.webp'],
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/goalquestleague\.com\.ng\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'goalquest-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          }
+        ]
+      },
       manifest: {
         name: 'GoalQuest League',
         short_name: 'GoalQuest',
@@ -22,7 +41,7 @@ export default defineConfig({
             src: '/goalquest-logo.webp',
             sizes: '512x512',
             type: 'image/webp',
-            purpose: 'any'
+            purpose: 'any maskable'
           }
         ]
       }
