@@ -101,6 +101,13 @@ export async function updatePlayerApproval(playerId, isApproved) {
   if (error) throw error;
 }
 
+export async function rejectPlayer(playerId) {
+  const { error } = await supabase.rpc('admin_reject_player', {
+    player_id_input: playerId,
+  });
+  if (error) throw error;
+}
+
 export async function reassignPlayer(playerId, division) {
   const { error } = await supabase.rpc('admin_reassign_player', {
     player_id_input: playerId,

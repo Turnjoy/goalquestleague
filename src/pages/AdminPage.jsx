@@ -6,6 +6,7 @@ import {
   deductPlayerPoints,
   fetchDisputedFixtures,
   fetchPlayers,
+  rejectPlayer,
   reassignPlayer,
   resolveDispute,
   updatePlayerApproval,
@@ -664,8 +665,14 @@ function AdminContent() {
                           <Check className="h-3 w-3" />
                           Approve
                         </GradientButton>
-                        <GradientButton variant="warning" onClick={() => run(() => updatePlayerApproval(player.id, false), 'Player rejected.')} className="text-xs">
-                          Reject
+                        <GradientButton
+                          variant="warning"
+                          onClick={() => run(() => rejectPlayer(player.id), 'Player rejected and account deleted.')}
+                          disabled={player.is_approved}
+                          className="text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                          title={player.is_approved ? 'Reject is only available for pending applicants' : 'Delete this pending player account'}
+                        >
+                          Reject &amp; Delete
                         </GradientButton>
                         <StyledInput
                           type="number"
