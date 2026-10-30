@@ -4,6 +4,7 @@ import SeoMeta from '../components/SeoMeta.jsx';
 import { PUBLIC_SEO } from '../lib/publicSeo.js';
 import { Link } from 'react-router-dom';
 import { isSupabaseConfigured, supabase } from '../lib/supabase.js';
+import { normalizeWhatsAppNumber } from '../lib/whatsappPhone.js';
 
 const REAL_WORLD_CLUBS = [
   'real madrid', 'manchester united', 'barcelona', 'psg', 'arsenal', 'chelsea',
@@ -48,23 +49,6 @@ export default function RegisterPage() {
     }
   }
 
-  function formatWhatsAppNumber(input) {
-    // Remove all non-digit characters
-    let cleaned = input.replace(/\D/g, '');
-
-    // Strip leading zero if present
-    if (cleaned.startsWith('0')) {
-      cleaned = cleaned.substring(1);
-    }
-
-    // Ensure it starts with 234 (Nigeria country code)
-    if (!cleaned.startsWith('234')) {
-      cleaned = '234' + cleaned;
-    }
-
-    return cleaned;
-  }
-
   function validateForm() {
     const errors = {};
 
@@ -97,9 +81,8 @@ export default function RegisterPage() {
     if (!form.whatsapp_number.trim()) {
       errors.whatsapp_number = 'WhatsApp number is required';
     } else {
-      const formatted = formatWhatsAppNumber(form.whatsapp_number);
-      if (formatted.length !== 13) { // Nigeria numbers should be 13 digits with country code
-        errors.whatsapp_number = 'Please enter a valid Nigerian phone number';
+      if (!normalizeWhatsAppNumber(form.whatsapp_number)) {
+        errors.whatsapp_number = 'Enter a valid international number with its country code, such as +234 801 234 5678.';
       }
     }
 
@@ -138,7 +121,7 @@ export default function RegisterPage() {
     setMessage('');
 
     // Format WhatsApp number
-    const formattedWhatsApp = formatWhatsAppNumber(form.whatsapp_number);
+    const formattedWhatsApp = normalizeWhatsAppNumber(form.whatsapp_number);
 
     let result;
     try {
@@ -238,17 +221,17 @@ export default function RegisterPage() {
           </label>
 
           <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 sm:col-span-2">
-            WhatsApp Phone Number (Nigeria: +234)
+            International WhatsApp Number
             <input
               type="tel"
               required
               value={form.whatsapp_number}
               onChange={(event) => updateField('whatsapp_number', event.target.value)}
               className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="e.g., 08169229065 or 2348169229065"
+              placeholder="e.g., +234 801 234 5678 or +1 202 555 0123"
             />
             {fieldErrors.whatsapp_number && <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{fieldErrors.whatsapp_number}</p>}
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Leading zeros will be stripped automatically. Country code (+234) will be added if needed.</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Include the country calling code. Formatting spaces, brackets, hyphens, and a leading + are accepted.</p>
           </label>
 
           <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 sm:col-span-2">

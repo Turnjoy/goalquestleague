@@ -2,6 +2,7 @@ import { AlertTriangle, Check, Send, ShieldAlert, MessageCircle, X, Trophy, User
 import { useState } from 'react';
 import Badge from './Badge.jsx';
 import { supabase } from '../lib/supabase.js';
+import { whatsappChatUrl } from '../lib/whatsappPhone.js';
 
 export default function FixtureCard({ fixture, userId, onSubmitScore, onConfirmScore, onDisputeScore }) {
   const [homeScore, setHomeScore] = useState(fixture.home_score ?? '');
@@ -23,6 +24,7 @@ export default function FixtureCard({ fixture, userId, onSubmitScore, onConfirmS
 
   const opponentId = isHome ? fixture.away_player_id : fixture.home_player_id;
   const opponentName = isHome ? fixture.away_team : fixture.home_team;
+  const opponentWhatsAppUrl = whatsappChatUrl(opponentProfile?.whatsapp_number);
 
   async function loadOpponentSquad() {
     if (!opponentId) return;
@@ -189,9 +191,9 @@ export default function FixtureCard({ fixture, userId, onSubmitScore, onConfirmS
           {showSquad ? 'Hide Squad' : 'View Squad'}
         </button>
 
-        {opponentProfile?.whatsapp_number && (
+        {opponentWhatsAppUrl && (
           <a
-            href={`https://wa.me/${opponentProfile.whatsapp_number}`}
+            href={opponentWhatsAppUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-2 text-sm font-bold text-white hover:from-green-500 hover:to-emerald-500 shadow-lg shadow-green-500/25"

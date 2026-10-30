@@ -151,6 +151,7 @@ function AdminContent() {
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
   const [edits, setEdits] = useState({});
+  const [divisionTargets, setDivisionTargets] = useState({});
   const [selectedDivision, setSelectedDivision] = useState('Elite');
   const [activeTab, setActiveTab] = useState('fixtures');
   const [rescheduleModal, setRescheduleModal] = useState({ open: false, fixtureId: null, newDate: '' });
@@ -204,6 +205,14 @@ function AdminContent() {
 
   function setEdit(id, field, value) {
     setEdits((current) => ({ ...current, [id]: { ...current[id], [field]: value } }));
+  }
+
+  function getDivisionChangeLabel(currentDivision, targetDivision) {
+    const currentRank = DIVISION_NAMES.indexOf(currentDivision);
+    const targetRank = DIVISION_NAMES.indexOf(targetDivision);
+    if (targetRank < currentRank) return `Promote to ${targetDivision}`;
+    if (targetRank > currentRank) return `Demote to ${targetDivision}`;
+    return `Reassign to ${targetDivision}`;
   }
 
   async function run(action, success) {
@@ -607,15 +616,39 @@ function AdminContent() {
                       <p className="text-xs text-slate-500 dark:text-slate-400">{player.email}</p>
                     </td>
                     <td className="px-4 py-4">
-                      <StyledSelect
-                        value={player.division}
-                        onChange={(event) => run(() => reassignPlayer(player.id, event.target.value), `Player moved to ${event.target.value}.`)}
-                        className="text-xs"
-                      >
-                        {DIVISION_NAMES.map((division) => (
-                          <option key={division} value={division}>{division}</option>
-                        ))}
-                      </StyledSelect>
+                      <div className="flex flex-col gap-2">
+                        <StyledSelect
+                          value={divisionTargets[player.id] ?? player.division}
+                          onChange={(event) => setDivisionTargets((current) => ({
+                            ...current,
+                            [player.id]: event.target.value,
+                          }))}
+                          className="text-xs"
+                          aria-label={`Choose a division for ${player.gamertag || player.full_name}`}
+                        >
+                          {DIVISION_NAMES.map((division) => (
+                            <option key={division} value={division}>{division}</option>
+                          ))}
+                        </StyledSelect>
+                        <GradientButton
+                          variant="info"
+                          onClick={() => {
+                            const targetDivision = divisionTargets[player.id] ?? player.division;
+                            if (targetDivision === player.division) return;
+                            const changeVerb = DIVISION_NAMES.indexOf(targetDivision) < DIVISION_NAMES.indexOf(player.division)
+                              ? 'promoted'
+                              : 'demoted';
+                            run(
+                              () => reassignPlayer(player.id, targetDivision),
+                              `Player ${changeVerb} to ${targetDivision}.`,
+                            );
+                          }}
+                          disabled={(divisionTargets[player.id] ?? player.division) === player.division}
+                          className="justify-center whitespace-nowrap px-2 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {getDivisionChangeLabel(player.division, divisionTargets[player.id] ?? player.division)}
+                        </GradientButton>
+                      </div>
                     </td>
                     <td className="px-4 py-4">
                       <span className={`text-xs font-bold ${player.is_approved ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
