@@ -16,6 +16,7 @@ import {
   isRetryableGeminiError,
 } from './gemini-fallback.js';
 import { classifyGeminiError, normalizeScreenshotPayload } from './gemini-pipeline.js';
+import { batchingMiddleware, rateLimitMiddleware, getQueueStats, clearQueue } from './middleware/batchMiddleware.js';
 
 dotenv.config();
 
@@ -766,21 +767,45 @@ async function handleExtractSquad(req, res) {
   }
 }
 
-app.post('/api/extract-squad', requireUser, handleExtractSquad);
+// Apply "Usher & Bouncer" batching middleware to squad extraction endpoints
+app.post('/api/extract-squad', 
+  rateLimitMiddleware('squadExtraction'),
+  batchingMiddleware('squadExtraction'),
+  requireUser, 
+  handleExtractSquad
+);
 
 // Preserve the original multipart API contract; Multer keeps upload data in memory only.
-app.post('/api/squad/extract-vision', upload.fields([
-  { name: 'inventoryScreenshots', maxCount: 30 },
-  { name: 'pitchScreenshot', maxCount: 1 },
-]), requireUser, (req, res) => {
-  const files = req.files || {};
-  const inventoryImages = (files.inventoryScreenshots || []).map(file => `data:${file.mimetype};base64,${file.buffer.toString('base64')}`);
-  const pitchFile = files.pitchScreenshot?.[0];
-  req.body = {
-    inventoryImages,
-    pitchImage: pitchFile ? `data:${pitchFile.mimetype};base64,${pitchFile.buffer.toString('base64')}` : null,
-  };
-  return handleExtractSquad(req, res);
+app.post('/api/squad/extract-vision', 
+  upload.fields([
+    { name: 'inventoryScreenshots', maxCount: 30 },
+    { name: 'pitchScreenshot', maxCount: 1 },
+  ]),
+  rateLimitMiddleware('squadExtraction'),
+  batchingMiddleware('squadExtraction'),
+  requireUser, 
+  (req, res) => {
+    const files = req.files || {};
+    const inventoryImages = (files.inventoryScreenshots || []).map(file => `data:${file.mimetype};base64,${file.buffer.toString('base64')}`);
+    const pitchFile = files.pitchScreenshot?.[0];
+    req.body = {
+      inventoryImages,
+      pitchImage: pitchFile ? `data:${pitchFile.mimetype};base64,${pitchFile.buffer.toString('base64')}` : null,
+    };
+    return handleExtractSquad(req, res);
+  }
+);
+
+// Admin endpoint to check queue statistics
+app.get('/api/admin/queue-stats', requireUser, (req, res) => {
+  // Optional: Add admin check here
+  return getQueueStats(req, res);
+});
+
+// Admin endpoint to clear queue (emergency use)
+app.post('/api/admin/clear-queue/:queueName', requireUser, (req, res) => {
+  // Optional: Add admin check here
+  return clearQueue(req, res);
 });
 
 const server = app.listen(port, '0.0.0.0', () => {

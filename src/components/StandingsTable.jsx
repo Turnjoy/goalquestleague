@@ -3,7 +3,7 @@ import { fetchStandings } from '../lib/leagueApi.js';
 import { supabase } from '../lib/supabase.js';
 import Spinner from './Spinner.jsx';
 
-export default function StandingsTable({ division }) {
+export default function StandingsTable({ division, league }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -12,7 +12,7 @@ export default function StandingsTable({ division }) {
 
     async function load() {
       setLoading(true);
-      const data = await fetchStandings(division);
+      const data = await fetchStandings(division, league);
       if (mounted) {
         setRows(data);
         setLoading(false);
@@ -22,7 +22,7 @@ export default function StandingsTable({ division }) {
     load();
 
     const channel = supabase
-      .channel(`standings-${division || 'all'}`)
+      .channel(`standings-${division || 'all'}-${league || 'all'}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'standings' }, load)
       .subscribe();
 
@@ -30,7 +30,7 @@ export default function StandingsTable({ division }) {
       mounted = false;
       supabase.removeChannel(channel);
     };
-  }, [division]);
+  }, [division, league]);
 
   if (loading) return <Spinner label="Loading live standings" />;
 

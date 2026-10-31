@@ -1,7 +1,7 @@
 import { BadgeDollarSign, Download, Handshake, LogIn, Trophy, UserPlus, Verified } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { DIVISIONS } from '../lib/divisions.js';
+import { TIERS, LEAGUES } from '../lib/divisions.js';
 import SeoMeta from '../components/SeoMeta.jsx';
 import { PUBLIC_SEO } from '../lib/publicSeo.js';
 import { showInstallPrompt, subscribeToInstallPrompt } from '../lib/pwaInstall.js';
@@ -10,11 +10,17 @@ export default function LandingPage() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [installHelp, setInstallHelp] = useState('');
   const [installed, setInstalled] = useState(false);
-  const [selectedDivision, setSelectedDivision] = useState(DIVISIONS[0].name);
+  const [selectedLeague, setSelectedLeague] = useState(LEAGUES[0].name);
+  const [selectedTier, setSelectedTier] = useState(TIERS[0].name);
 
-  const selected = useMemo(
-    () => DIVISIONS.find((division) => division.name === selectedDivision) ?? DIVISIONS[0],
-    [selectedDivision],
+  const selectedLeagueData = useMemo(
+    () => LEAGUES.find((league) => league.name === selectedLeague) ?? LEAGUES[0],
+    [selectedLeague],
+  );
+
+  const selectedTierData = useMemo(
+    () => TIERS.find((tier) => tier.name === selectedTier) ?? TIERS[0],
+    [selectedTier],
   );
 
   useEffect(() => {
@@ -84,8 +90,9 @@ export default function LandingPage() {
           </div>
           <dl className="mt-12 grid max-w-4xl gap-3 sm:grid-cols-3">
             {[
-              ['11', 'Official divisions'],
-              ['1,000+', 'Upper-division slots'],
+              ['10', 'Custom Leagues'],
+              ['5', 'Tiers per League'],
+              ['1,000+', 'Total League Slots'],
             ].map(([value, label]) => (
               <div key={label} className="border-l-4 border-gold bg-white/10 px-4 py-3 backdrop-blur">
                 <dt className="text-3xl font-black text-gold">{value}</dt>
@@ -109,33 +116,60 @@ export default function LandingPage() {
       <section className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-3xl font-black">Division showcase</h2>
-            <p className="mt-1 text-sm font-semibold text-slate-600">Players are placed top-down from Elite to Trial as slots fill.</p>
+            <h2 className="text-3xl font-black">League & Tier Structure</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-600">10 Custom Leagues, each with 5 Tiers (20 players per tier). Players fill Apex Football League top-down, then roll over to Crown Super League.</p>
           </div>
           <div className="rounded border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <p className="text-xs font-bold uppercase text-slate-500">Selected</p>
-            <p className="font-black">{selected.name} · {selected.slots ? `${selected.slots} slots` : 'Unlimited / Open'}</p>
+            <p className="font-black">{selectedLeagueData.name} · {selectedTierData.name} · {selectedTierData.slots} slots</p>
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {DIVISIONS.map((division, index) => (
-            <button
-              key={division.name}
-              type="button"
-              onClick={() => setSelectedDivision(division.name)}
-              className={`rounded-md border p-4 text-left transition ${
-                selectedDivision === division.name
-                  ? 'border-gold bg-ink text-white shadow-panel'
-                  : 'border-slate-200 bg-white hover:border-gold hover:shadow-sm'
-              }`}
-            >
-              <span className="text-xs font-black uppercase text-gold">Division {index + 1}</span>
-              <span className="mt-2 block text-xl font-black">{division.name}</span>
-              <span className={selectedDivision === division.name ? 'text-sm font-semibold text-slate-200' : 'text-sm font-semibold text-slate-600'}>
-                {division.slots ? `${division.slots} slots` : 'Unlimited / Open'}
-              </span>
-            </button>
-          ))}
+        
+        <div className="mb-6">
+          <h3 className="text-lg font-black mb-3">Select League</h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {LEAGUES.map((league) => (
+              <button
+                key={league.name}
+                type="button"
+                onClick={() => setSelectedLeague(league.name)}
+                className={`rounded-md border p-4 text-left transition ${
+                  selectedLeague === league.name
+                    ? 'border-gold bg-ink text-white shadow-panel'
+                    : 'border-slate-200 bg-white hover:border-gold hover:shadow-sm'
+                }`}
+              >
+                <span className="mt-2 block text-lg font-black">{league.name}</span>
+                <span className={selectedLeague === league.name ? 'text-sm font-semibold text-slate-200' : 'text-sm font-semibold text-slate-600'}>
+                  {league.tiers} Tiers · {league.maxPlayers} players
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-lg font-black mb-3">Tiers in {selectedLeagueData.name}</h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {TIERS.map((tier) => (
+              <button
+                key={tier.name}
+                type="button"
+                onClick={() => setSelectedTier(tier.name)}
+                className={`rounded-md border p-4 text-left transition ${
+                  selectedTier === tier.name
+                    ? 'border-gold bg-ink text-white shadow-panel'
+                    : 'border-slate-200 bg-white hover:border-gold hover:shadow-sm'
+                }`}
+              >
+                <span className="text-xs font-black uppercase text-gold">Tier {tier.tier}</span>
+                <span className="mt-2 block text-xl font-black">{tier.name}</span>
+                <span className={selectedTier === tier.name ? 'text-sm font-semibold text-slate-200' : 'text-sm font-semibold text-slate-600'}>
+                  {tier.slots} slots
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 

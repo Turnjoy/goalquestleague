@@ -10,15 +10,17 @@ export async function fetchMyFixtures(userId) {
   return data ?? [];
 }
 
-export async function fetchStandings(division) {
+export async function fetchStandings(division, league) {
   let query = supabase
     .from('standings')
-    .select('*, profiles!inner(is_admin, gamertag)')
+    .select('*, profiles!inner(is_admin, gamertag, league_name, division_name)')
     .order('points', { ascending: false })
     .order('goal_difference', { ascending: false })
     .order('goals_for', { ascending: false });
 
   if (division) query = query.eq('division', division);
+  if (league) query = query.eq('profiles.league_name', league);
+  
   const { data, error } = await query;
   if (error) throw error;
 
@@ -28,6 +30,8 @@ export async function fetchStandings(division) {
     .map(row => ({
       ...row,
       team_name: row.profiles.gamertag || row.team_name, // Use gamertag for team display
+      league_name: row.profiles.league_name,
+      division_name: row.profiles.division_name,
     }));
   return filteredData;
 }
