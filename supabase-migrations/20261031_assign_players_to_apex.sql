@@ -5,7 +5,7 @@ alter table public.profiles
 
 update public.profiles
 set manager_handle = coalesce(nullif(manager_handle, ''), nullif(efootball_username, ''), nullif(gamertag, ''), nullif(full_name, '')),
-    custom_team_name = coalesce(nullif(custom_team_name, ''), nullif(squad_name, ''), 'eFootball Team'),
+    custom_team_name = coalesce(nullif(custom_team_name, ''), nullif(squad_name, '')),
     league_name = 'Apex Football League';
 
 alter table public.profiles
@@ -110,6 +110,60 @@ drop trigger if exists on_profile_division_assigned on public.profiles;
 create trigger on_profile_division_assigned
   after update of division, is_approved, is_admin, league_name, manager_handle, gamertag, full_name, custom_team_name, squad_name on public.profiles
   for each row execute function public.auto_create_player_standing();
+
+with ordered_players as (
+  select
+    id,
+    row_number() over (order by created_at, id) as player_number
+  from public.profiles
+  where league_name = 'Apex Football League'
+    and is_admin = false
+    and is_approved = true
+    and status = 'active'
+),
+division_ranges as (
+  select
+    name,
+    coalesce(
+      sum(slot_limit) over (
+        order by sort_order
+        rows between unbounded preceding and 1 preceding
+      ),
+      0
+    ) + 1 as first_player_number,
+    case
+      when slot_limit is null then null
+      else sum(slot_limit) over (order by sort_order)
+    end as last_player_number
+  from public.division_catalog
+)
+update public.profiles p
+set division = d.name
+from ordered_players o
+join division_ranges d
+  on o.player_number >= d.first_player_number
+ and (d.last_player_number is null or o.player_number <= d.last_player_number)
+where p.id = o.id
+  and p.division is distinct from d.name;
+
+insert into public.standings (
+  division, league_name, season, player_id, player_name, team_name
+)
+select
+  p.division,
+  p.league_name,
+  extract(year from now())::int,
+  p.id,
+  coalesce(p.manager_handle, p.gamertag, p.full_name, 'Player'),
+  coalesce(p.custom_team_name, p.squad_name, 'eFootball Team')
+from public.profiles p
+where p.is_admin = false
+  and p.is_approved = true
+  and p.status = 'active'
+on conflict (division, season, player_id) do update
+  set player_name = excluded.player_name,
+      team_name = excluded.team_name,
+      league_name = excluded.league_name;
 
 create or replace function public.handle_new_user()
 returns trigger
