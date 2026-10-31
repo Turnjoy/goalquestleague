@@ -131,10 +131,13 @@ export async function deductPlayerPoints(playerId, division, season, amount) {
   if (error) throw error;
 }
 
-export async function generateFixtures(leagueId, division) {
-  const { data, error } = await supabase.rpc('generate_round_robin_fixtures', {
+export async function generateFixtures(leagueId, division, startDate, endDate, stopDate) {
+  const { data, error } = await supabase.rpc('generate_round_robin_fixtures_v2', {
     p_league_id: leagueId,
     p_division: division,
+    p_start_date: startDate,
+    p_end_date: endDate,
+    p_stop_date: stopDate,
   });
   if (error) throw error;
   return data;

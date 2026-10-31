@@ -155,10 +155,16 @@ function AdminContent() {
   const [divisionTargets, setDivisionTargets] = useState({});
   const [selectedDivision, setSelectedDivision] = useState('Elite');
   const [activeTab, setActiveTab] = useState('fixtures');
+  const [fixtureStartDate, setFixtureStartDate] = useState('');
+  const [fixtureEndDate, setFixtureEndDate] = useState('');
+  const [fixtureStopDate, setFixtureStopDate] = useState('');
+  const [generatingFixtures, setGeneratingFixtures] = useState(false);
   const [rescheduleModal, setRescheduleModal] = useState({ open: false, fixtureId: null, newDate: '' });
   const [banModal, setBanModal] = useState({ open: false, playerId: null, reason: '', notes: '' });
   const [reinstateModal, setReinstateModal] = useState({ open: false, playerId: null, newDivision: 'Trial' });
   const [seasonStartDate, setSeasonStartDate] = useState('');
+  const [seasonEndDate, setSeasonEndDate] = useState('');
+  const [seasonStopDate, setSeasonStopDate] = useState('');
   const [calendarPreview, setCalendarPreview] = useState(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
 
@@ -227,12 +233,28 @@ function AdminContent() {
   }
 
   async function handleGenerateFixtures() {
+    if (!fixtureStartDate || !fixtureEndDate || !fixtureStopDate) {
+      setMessage('Please select season start date, end date, and stop deadline.');
+      return;
+    }
+    if (fixtureEndDate < fixtureStartDate) {
+      setMessage('The fixture end date must be on or after the start date.');
+      return;
+    }
+    if (fixtureStopDate < fixtureEndDate) {
+      setMessage('The stop deadline must be after the season end date.');
+      return;
+    }
+
+    setGeneratingFixtures(true);
     try {
-      const result = await generateFixtures(null, selectedDivision);
-      setMessage(`Generated ${result.fixtures_generated} fixtures for ${result.division} division with ${result.players} players.`);
+      const result = await generateFixtures(null, selectedDivision, fixtureStartDate, fixtureEndDate, fixtureStopDate);
+      setMessage(`Generated ${result.fixtures_generated} fixtures for ${result.division} division with ${result.players} players. Season deadline set to ${fixtureStopDate}.`);
       await loadAllFixtures();
     } catch (error) {
       setMessage(error.message);
+    } finally {
+      setGeneratingFixtures(false);
     }
   }
 
@@ -320,11 +342,37 @@ function AdminContent() {
                 ))}
               </StyledSelect>
             </div>
-            <GradientButton variant="primary" onClick={handleGenerateFixtures}>
+            <div className="flex items-center gap-3">
+              <label htmlFor="fixture-start-date" className="text-sm font-bold text-slate-700 dark:text-slate-300">Start Date:</label>
+              <StyledInput
+                id="fixture-start-date"
+                type="date"
+                value={fixtureStartDate}
+                onChange={(event) => setFixtureStartDate(event.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <label htmlFor="fixture-end-date" className="text-sm font-bold text-slate-700 dark:text-slate-300">End Date:</label>
+              <StyledInput
+                id="fixture-end-date"
+                type="date"
+                value={fixtureEndDate}
+                min={fixtureStartDate || undefined}
+                onChange={(event) => setFixtureEndDate(event.target.value)}
+              />
+            </div>
+            <GradientButton
+              variant="primary"
+              onClick={handleGenerateFixtures}
+              disabled={generatingFixtures || !fixtureStartDate || !fixtureEndDate}
+            >
               <Trophy className="h-4 w-4" />
-              Generate Round-Robin Fixtures
+              {generatingFixtures ? 'Generating Fixtures...' : 'Generate Round-Robin Fixtures'}
             </GradientButton>
           </div>
+          <p className="mt-3 text-xs text-slate-600 dark:text-slate-400">
+            Matchweeks are spread across the selected date range. Existing fixtures in that division and range will be replaced.
+          </p>
         </GlassCard>
       )}
 
@@ -436,22 +484,62 @@ function AdminContent() {
                   className="w-full"
                 />
               </div>
+              <div className="flex-1 min-w-[250px]">
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Season End Date</label>
+                <StyledInput
+                  type="date"
+                  value={seasonEndDate}
+                  onChange={(e) => setSeasonEndDate(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex-1 min-w-[250px]">
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Season Stop Deadline</label>
+                <StyledInput
+                  type="date"
+                  value={seasonStopDate}
+                  onChange={(e) => setSeasonStopDate(e.target.value)}
+                  className="w-full"
+                />
+              </div>
               <GradientButton
                 variant="info"
                 onClick={async () => {
-                  if (!seasonStartDate) {
-                    setMessage('Please select a season start date', 'error');
+                  if (!seasonStartDate || !seasonEndDate || !seasonStopDate) {
+                    setMessage('Please select season start date, end date, and stop deadline', 'error');
+                    return;
+                  }
+                  if (seasonEndDate < seasonStartDate) {
+                    setMessage('Season end date must be after start date', 'error');
+                    return;
+                  }
+                  if (seasonStopDate < seasonEndDate) {
+                    setMessage('Stop deadline must be after season end date', 'error');
                     return;
                   }
                   setCalendarLoading(true);
                   try {
-                    const { data, error } = await supabase.rpc('calculate_season_calendar', {
-                      division_input: selectedDivision,
-                      season_start_date_input: seasonStartDate
-                    });
+                    const { data, error } = await supabase
+                      .from('season_calendars')
+                      .insert({
+                        division: selectedDivision,
+                        season_year: new Date().getFullYear(),
+                        season_start_date: seasonStartDate,
+                        season_end_date: seasonEndDate,
+                        stop_date: seasonStopDate,
+                        pre_season_window_start: new Date(new Date(seasonStartDate) - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        pre_season_window_end: new Date(new Date(seasonStartDate) - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        mid_season_window_start: new Date(new Date(seasonStartDate) + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        mid_season_window_end: new Date(new Date(seasonStartDate) + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        total_fixtures: 0,
+                        expected_duration_days: Math.ceil((new Date(seasonEndDate) - new Date(seasonStartDate)) / (1000 * 60 * 60 * 24)),
+                        is_finalized: false
+                      })
+                      .select()
+                      .single();
                     if (error) throw error;
                     setCalendarPreview(data);
-                    setMessage('Calendar calculated successfully. Review below before finalizing.', 'success');
+                    setMessage('Calendar calculated successfully. Review and finalize.', 'success');
                   } catch (error) {
                     setMessage(error.message || 'Failed to calculate calendar', 'error');
                   } finally {
@@ -475,6 +563,10 @@ function AdminContent() {
                   <div className="space-y-2">
                     <p className="text-sm text-slate-600 dark:text-slate-400">Season End Date</p>
                     <p className="font-bold text-slate-900 dark:text-white">{calendarPreview.season_end_date}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Season Stop Deadline</p>
+                    <p className="font-bold text-rose-600 dark:text-rose-400">{calendarPreview.stop_date || 'Not set'}</p>
                   </div>
                   <div className="space-y-2">
                     <p className="text-sm text-slate-600 dark:text-slate-400">Pre-Season Window</p>
@@ -502,7 +594,7 @@ function AdminContent() {
                     variant="success"
                     onClick={async () => {
                       try {
-                        // Insert into season_calendars
+                        // Insert into season_calendars with stop_date
                         const { error: calendarError } = await supabase
                           .from('season_calendars')
                           .insert({
@@ -510,6 +602,7 @@ function AdminContent() {
                             season_year: new Date().getFullYear(),
                             season_start_date: calendarPreview.season_start_date,
                             season_end_date: calendarPreview.season_end_date,
+                            stop_date: seasonStopDate,
                             pre_season_window_start: calendarPreview.pre_season_window_start,
                             pre_season_window_end: calendarPreview.pre_season_window_end,
                             mid_season_window_start: calendarPreview.mid_season_window_start,
@@ -545,9 +638,11 @@ function AdminContent() {
                           });
                         if (windowError2) throw windowError2;
 
-                        setMessage('Season calendar finalized and transfer windows created!', 'success');
+                        setMessage('Season calendar finalized with deadline! Transfer windows created.', 'success');
                         setCalendarPreview(null);
                         setSeasonStartDate('');
+                        setSeasonEndDate('');
+                        setSeasonStopDate('');
                       } catch (error) {
                         setMessage(error.message || 'Failed to finalize calendar', 'error');
                       }
