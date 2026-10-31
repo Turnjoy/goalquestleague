@@ -124,44 +124,25 @@ COMMENT ON VIEW tier_capacity_stats IS 'Real-time view of tier/division capacity
 -- PART 3: FUNCTIONS
 -- ============================================
 
--- Auto-allocation trigger function
+-- Auto-allocation trigger function (simplified: fill Apex tiers sequentially)
 CREATE OR REPLACE FUNCTION auto_allocate_player_to_league()
 RETURNS TRIGGER AS $$
 DECLARE
   target_league TEXT;
   target_tier INTEGER;
   target_division TEXT;
-  league_capacity INTEGER;
   league_current_players INTEGER;
 BEGIN
-  -- Get target league (fill Apex first, then Crown, then Diamond)
-  SELECT name, max_players INTO target_league, league_capacity
-  FROM leagues
-  WHERE is_active = true
-  ORDER BY created_at ASC
-  LIMIT 1;
+  -- Always use Apex Football League as the primary league
+  target_league := 'Apex Football League';
   
   -- Count current players in the league
   SELECT COUNT(*) INTO league_current_players
   FROM profiles
   WHERE league_name = target_league;
   
-  -- If league is full (100 players), move to next league
-  IF league_current_players >= league_capacity THEN
-    SELECT name, max_players INTO target_league, league_capacity
-    FROM leagues
-    WHERE is_active = true
-      AND name > target_league
-    ORDER BY name ASC
-    LIMIT 1;
-    
-    -- Recount for new league
-    SELECT COUNT(*) INTO league_current_players
-    FROM profiles
-    WHERE league_name = target_league;
-  END IF;
-  
   -- Determine tier based on league capacity (20 players per tier)
+  -- Tier 1: players 0-19, Tier 2: 20-39, Tier 3: 40-59, Tier 4: 60-79, Tier 5: 80-99
   target_tier := (league_current_players / 20) + 1;
   
   -- Cap at tier 5
@@ -345,8 +326,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Backward compatibility wrapper
-CREATE OR REPLACE FUNCTION admin_reassign_player(p_player_id UUID, p_division_input TEXT)
+-- Backward compatibility wrapper (drop existing first)
+DROP FUNCTION IF EXISTS admin_reassign_player(UUID, TEXT);
+CREATE FUNCTION admin_reassign_player(p_player_id UUID, p_division_input TEXT)
 RETURNS VOID AS $$
 BEGIN
   PERFORM admin_reassign_player_v2(p_player_id, NULL, NULL, p_division_input);
@@ -523,26 +505,32 @@ CREATE TRIGGER on_profile_insert_auto_allocate
   EXECUTE FUNCTION auto_allocate_player_to_league();
 
 -- ============================================
--- PART 5: DATA MIGRATION (SEQUENTIAL TOP-DOWN)
+-- PART 5: DATA MIGRATION (SIMPLIFIED - ALL TO APEX)
 -- ============================================
 
--- Migrate existing players sequentially to Apex tiers
+-- Migrate all existing players to Apex Football League tiers sequentially
 DO $$
 DECLARE
   player_count INTEGER;
   current_tier INTEGER;
   target_division TEXT;
+  offset_counter INTEGER := 0;
   player_record RECORD;
 BEGIN
   SELECT COUNT(*) INTO player_count FROM profiles;
-  RAISE NOTICE 'Found % existing players to migrate', player_count;
+  RAISE NOTICE 'Found % existing players to migrate to Apex Football League', player_count;
   
-  -- Migrate players sequentially (top-down into Apex Premier, then Championship, etc.)
+  -- Migrate players sequentially (fill Tier 1 first, then Tier 2, etc.)
   FOR player_record IN (
     SELECT id FROM profiles ORDER BY created_at ASC
   ) LOOP
-    -- Calculate tier based on current count
-    current_tier := ((player_count - 1) / 20) + 1;
+    -- Calculate tier based on offset (20 players per tier)
+    current_tier := (offset_counter / 20) + 1;
+    
+    -- Cap at tier 5
+    IF current_tier > 5 THEN
+      current_tier := 5;
+    END IF;
     
     -- Set division based on tier
     CASE current_tier
@@ -563,10 +551,10 @@ BEGIN
       league_joined_at = created_at
     WHERE id = player_record.id;
     
-    player_count := player_count - 1;
+    offset_counter := offset_counter + 1;
   END LOOP;
   
-  RAISE NOTICE 'Migration complete: All players allocated to Apex Football League tiers';
+  RAISE NOTICE 'Migration complete: All % players allocated to Apex Football League tiers', offset_counter;
 END $$;
 
 -- ============================================
