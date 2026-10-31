@@ -84,7 +84,7 @@ export async function resolveDispute(fixtureId, homeScore, awayScore, notes) {
 export async function fetchPlayers(searchTerm = '', leagueName = '') {
   let query = supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(100);
   if (searchTerm) {
-    query = query.or(`email.ilike.%${searchTerm}%,manager_handle.ilike.%${searchTerm}%,gamertag.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%`);
+    query = query.or(`email.ilike.%${searchTerm}%,manager_handle.ilike.%${searchTerm}%,gamertag.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%,whatsapp_number.ilike.%${searchTerm}%`);
   }
   if (leagueName) query = query.eq('league_name', leagueName);
   const { data, error } = await query;

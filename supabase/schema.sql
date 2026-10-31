@@ -139,6 +139,66 @@ as $$
   );
 $$;
 
+create or replace function public.update_my_profile_contact(
+  full_name_input text,
+  whatsapp_number_input text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  normalized_phone text := regexp_replace(coalesce(whatsapp_number_input, ''), '[^0-9]', '', 'g');
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication is required to update profile details';
+  end if;
+
+  if nullif(btrim(full_name_input), '') is null then
+    raise exception 'Full legal name is required';
+  end if;
+
+  if normalized_phone !~ '^[1-9][0-9]{7,14}$' then
+    raise exception 'Enter a valid international WhatsApp number with its country code';
+  end if;
+
+  update public.profiles
+  set full_name = btrim(full_name_input),
+      whatsapp_number = normalized_phone
+  where id = auth.uid();
+
+  if not found then
+    raise exception 'Profile not found';
+  end if;
+end;
+$$;
+
+revoke all on function public.update_my_profile_contact(text, text) from public, anon;
+grant execute on function public.update_my_profile_contact(text, text) to authenticated;
+
+create or replace function public.sync_profile_email_from_auth()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.profiles
+  set email = new.email
+  where id = new.id
+    and email is distinct from new.email;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_email_changed on auth.users;
+create trigger on_auth_user_email_changed
+  after update of email on auth.users
+  for each row
+  when (old.email is distinct from new.email)
+  execute function public.sync_profile_email_from_auth();
+
 create or replace function public.assign_player_to_highest_available_division(player_id_input uuid)
 returns text
 language plpgsql
@@ -840,7 +900,32 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  full_name_value text := nullif(btrim(new.raw_user_meta_data->>'full_name'), '');
+  manager_handle_value text := coalesce(
+    nullif(btrim(new.raw_user_meta_data->>'manager_handle'), ''),
+    nullif(btrim(new.raw_user_meta_data->>'gamertag'), '')
+  );
+  team_name_value text := coalesce(
+    nullif(btrim(new.raw_user_meta_data->>'custom_team_name'), ''),
+    nullif(btrim(new.raw_user_meta_data->>'squad_name'), '')
+  );
+  whatsapp_number_value text := regexp_replace(
+    coalesce(new.raw_user_meta_data->>'whatsapp_number', ''),
+    '[^0-9]',
+    '',
+    'g'
+  );
 begin
+  if nullif(btrim(new.email), '') is null
+     or full_name_value is null
+     or manager_handle_value is null
+     or length(manager_handle_value) < 3
+     or team_name_value is null
+     or whatsapp_number_value !~ '^[1-9][0-9]{7,14}$' then
+    raise exception 'Registration requires a valid email, full name, manager handle (at least 3 characters), team name, and international WhatsApp number';
+  end if;
+
   insert into public.profiles (
     id, email, gamertag, efootball_username, squad_name, full_name,
     whatsapp_number, manager_handle, custom_team_name, league_name
@@ -848,13 +933,13 @@ begin
   values (
     new.id,
     new.email,
-    coalesce(new.raw_user_meta_data->>'gamertag', split_part(new.email, '@', 1)),
-    new.raw_user_meta_data->>'efootball_username',
-    new.raw_user_meta_data->>'squad_name',
-    new.raw_user_meta_data->>'full_name',
-    new.raw_user_meta_data->>'whatsapp_number',
-    coalesce(new.raw_user_meta_data->>'manager_handle', new.raw_user_meta_data->>'gamertag'),
-    coalesce(new.raw_user_meta_data->>'custom_team_name', new.raw_user_meta_data->>'squad_name'),
+    manager_handle_value,
+    manager_handle_value,
+    team_name_value,
+    full_name_value,
+    whatsapp_number_value,
+    manager_handle_value,
+    team_name_value,
     'Apex Football League'
   )
   on conflict (id) do nothing;

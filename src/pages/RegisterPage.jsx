@@ -60,7 +60,7 @@ export default function RegisterPage() {
     // Validate manager handle (username)
     if (!form.manager_handle.trim()) {
       errors.manager_handle = 'Manager handle is required';
-    } else if (form.manager_handle.length < 3) {
+    } else if (form.manager_handle.trim().length < 3) {
       errors.manager_handle = 'Manager handle must be at least 3 characters';
     }
 
@@ -68,7 +68,7 @@ export default function RegisterPage() {
     if (!form.custom_team_name.trim()) {
       errors.custom_team_name = 'Custom team name is required';
     } else {
-      const lowerTeamName = form.custom_team_name.toLowerCase();
+      const lowerTeamName = form.custom_team_name.trim().toLowerCase();
       const isBlacklisted = REAL_WORLD_CLUBS.some(club =>
         lowerTeamName.includes(club) || club.includes(lowerTeamName)
       );
@@ -89,7 +89,7 @@ export default function RegisterPage() {
     // Validate email
     if (!form.email.trim()) {
       errors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(form.email)) {
+    } else if (!/\S+@\S+\.\S+/.test(form.email.trim())) {
       errors.email = 'Please enter a valid email address';
     }
 
@@ -126,17 +126,17 @@ export default function RegisterPage() {
     let result;
     try {
       result = await supabase.auth.signUp({
-        email: form.email,
+        email: form.email.trim(),
         password: form.password,
         options: {
           data: {
-            gamertag: form.manager_handle,
-            efootball_username: form.manager_handle, // Map manager handle to both fields
-            squad_name: form.custom_team_name,
-            full_name: form.full_name,
+            gamertag: form.manager_handle.trim(),
+            efootball_username: form.manager_handle.trim(),
+            squad_name: form.custom_team_name.trim(),
+            full_name: form.full_name.trim(),
             whatsapp_number: formattedWhatsApp,
-            manager_handle: form.manager_handle,
-            custom_team_name: form.custom_team_name,
+            manager_handle: form.manager_handle.trim(),
+            custom_team_name: form.custom_team_name.trim(),
             league_name: 'Apex Football League',
           },
         },
@@ -187,6 +187,7 @@ export default function RegisterPage() {
             <input
               type="text"
               required
+              autoComplete="name"
               value={form.full_name}
               onChange={(event) => updateField('full_name', event.target.value)}
               className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -200,6 +201,8 @@ export default function RegisterPage() {
             <input
               type="text"
               required
+              minLength={3}
+              autoComplete="username"
               value={form.manager_handle}
               onChange={(event) => updateField('manager_handle', event.target.value)}
               className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -213,6 +216,7 @@ export default function RegisterPage() {
             <input
               type="text"
               required
+              autoComplete="organization"
               value={form.custom_team_name}
               onChange={(event) => updateField('custom_team_name', event.target.value)}
               className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -237,6 +241,7 @@ export default function RegisterPage() {
             <input
               type="tel"
               required
+              autoComplete="tel"
               value={form.whatsapp_number}
               onChange={(event) => updateField('whatsapp_number', event.target.value)}
               className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -251,6 +256,7 @@ export default function RegisterPage() {
             <input
               type="email"
               required
+              autoComplete="email"
               value={form.email}
               onChange={(event) => updateField('email', event.target.value)}
               className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -264,6 +270,7 @@ export default function RegisterPage() {
             <input
               type="password"
               required
+              autoComplete="new-password"
               value={form.password}
               onChange={(event) => updateField('password', event.target.value)}
               className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"

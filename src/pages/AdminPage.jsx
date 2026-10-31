@@ -730,6 +730,9 @@ function AdminContent() {
                   <tr key={player.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="px-4 py-4">
                       <p className="font-black text-slate-900 dark:text-white">{player.manager_handle || player.gamertag || player.full_name}</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-300">Full name: {player.full_name || 'Not provided'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Team: {player.custom_team_name || player.squad_name || 'Not provided'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">WhatsApp: {player.whatsapp_number || 'Not provided'}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">{player.email}</p>
                     </td>
                     <td className="px-4 py-4">
