@@ -412,11 +412,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Fixture generation with stop_date
 CREATE OR REPLACE FUNCTION generate_fixtures_with_deadline(
-  p_league_id TEXT DEFAULT NULL,
+  p_league_id TEXT,
   p_division TEXT,
   p_start_date DATE,
   p_end_date DATE,
-  p_stop_date DATE DEFAULT NULL
+  p_stop_date DATE
 )
 RETURNS JSONB AS $$
 DECLARE
