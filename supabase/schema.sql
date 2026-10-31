@@ -39,11 +39,11 @@ create table if not exists public.division_catalog (
 insert into public.division_catalog (name, sort_order, slot_limit, is_open)
 values
   ('Elite', 1, 20, false),
-  ('Premier', 2, 100, false),
-  ('Championship', 3, 100, false),
-  ('Challenger', 4, 100, false),
-  ('Contender', 5, 100, false),
-  ('Trial', 11, null, true)
+  ('Premier', 2, 20, false),
+  ('Championship', 3, 20, false),
+  ('Challenger', 4, 20, false),
+  ('Contender', 5, 20, false),
+  ('Trial', 6, null, true)
 on conflict (name) do update set
   sort_order = excluded.sort_order,
   slot_limit = excluded.slot_limit,

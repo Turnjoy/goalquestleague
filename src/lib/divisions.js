@@ -1,4 +1,4 @@
-// Multi-League Structure: 10 Custom Leagues, each with 5 Tiers (20 players per tier)
+// Ten leagues each use the same five 20-player divisions.
 export const LEAGUES = [
   { name: 'Apex Football League', tiers: 5, playersPerTier: 20, maxPlayers: 100 },
   { name: 'Crown Super League', tiers: 5, playersPerTier: 20, maxPlayers: 100 },
@@ -15,10 +15,10 @@ export const LEAGUES = [
 // The five competitive divisions, ordered from highest to lowest.
 export const TIERS = [
   { name: 'Elite', tier: 1, slots: 20 },
-  { name: 'Premier', tier: 2, slots: 100 },
-  { name: 'Championship', tier: 3, slots: 100 },
-  { name: 'Challenger', tier: 4, slots: 100 },
-  { name: 'Contender', tier: 5, slots: 100 },
+  { name: 'Premier', tier: 2, slots: 20 },
+  { name: 'Championship', tier: 3, slots: 20 },
+  { name: 'Challenger', tier: 4, slots: 20 },
+  { name: 'Contender', tier: 5, slots: 20 },
 ];
 
 export const DIVISIONS = TIERS;
