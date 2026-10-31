@@ -6,16 +6,21 @@ import Spinner from './Spinner.jsx';
 export default function StandingsTable({ division, league }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     let mounted = true;
 
     async function load() {
       setLoading(true);
-      const data = await fetchStandings(division, league);
-      if (mounted) {
-        setRows(data);
-        setLoading(false);
+      setLoadError('');
+      try {
+        const data = await fetchStandings(division, league);
+        if (mounted) setRows(data);
+      } catch (error) {
+        if (mounted) setLoadError(error instanceof Error ? error.message : 'Unknown error');
+      } finally {
+        if (mounted) setLoading(false);
       }
     }
 
@@ -33,6 +38,13 @@ export default function StandingsTable({ division, league }) {
   }, [division, league]);
 
   if (loading) return <Spinner label="Loading live standings" />;
+  if (loadError) {
+    return (
+      <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+        Could not load standings: {loadError}. Check your Supabase connection and verify the latest migration is applied.
+      </p>
+    );
+  }
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg dark:shadow-xl">

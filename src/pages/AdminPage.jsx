@@ -17,8 +17,9 @@ import {
   liftBan,
   fetchBannedUsers,
   fetchAllFixtures,
+  updatePlayerLeague,
 } from '../lib/leagueApi.js';
-import { DIVISION_NAMES } from '../lib/divisions.js';
+import { DIVISION_NAMES, LEAGUES } from '../lib/divisions.js';
 import { supabase } from '../lib/supabase.js';
 
 // Custom glowing status badge component
@@ -153,6 +154,8 @@ function AdminContent() {
   const [message, setMessage] = useState('');
   const [edits, setEdits] = useState({});
   const [divisionTargets, setDivisionTargets] = useState({});
+  const [leagueTargets, setLeagueTargets] = useState({});
+  const [selectedPlayerLeague, setSelectedPlayerLeague] = useState(LEAGUES[0].name);
   const [selectedDivision, setSelectedDivision] = useState('Elite');
   const [activeTab, setActiveTab] = useState('fixtures');
   const [fixtureStartDate, setFixtureStartDate] = useState('');
@@ -181,8 +184,13 @@ function AdminContent() {
     setDisputes(await fetchDisputedFixtures());
   }
 
-  async function loadPlayers(term = search) {
-    setPlayers(await fetchPlayers(term));
+  async function loadPlayers(term = search, leagueName = selectedPlayerLeague) {
+    try {
+      setPlayers(await fetchPlayers(term, leagueName));
+    } catch (error) {
+      setPlayers([]);
+      setMessage(error instanceof Error ? error.message : 'Could not load players.');
+    }
   }
 
   async function loadBannedUsers() {
@@ -195,7 +203,7 @@ function AdminContent() {
 
   useEffect(() => {
     loadDisputes();
-    loadPlayers('');
+    loadPlayers('', selectedPlayerLeague);
     loadBannedUsers();
     loadAllFixtures();
     const channel = supabase
@@ -208,7 +216,7 @@ function AdminContent() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'banned_users' }, loadBannedUsers)
       .subscribe();
     return () => supabase.removeChannel(channel);
-  }, []);
+  }, [selectedPlayerLeague]);
 
   function setEdit(id, field, value) {
     setEdits((current) => ({ ...current, [id]: { ...current[id], [field]: value } }));
@@ -680,6 +688,19 @@ function AdminContent() {
                 <p className="text-xs text-slate-600 dark:text-slate-400">Complete player control and oversight</p>
               </div>
             </div>
+            <StyledSelect
+              value={selectedPlayerLeague}
+              onChange={(event) => {
+                setSelectedPlayerLeague(event.target.value);
+                loadPlayers(search, event.target.value);
+              }}
+              aria-label="Filter players by league"
+            >
+              <option value="">All leagues</option>
+              {LEAGUES.map((league) => (
+                <option key={league.name} value={league.name}>{league.name}</option>
+              ))}
+            </StyledSelect>
             <label className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5">
               <Search className="h-4 w-4 text-slate-500 dark:text-slate-400" />
               <StyledInput
@@ -694,10 +715,10 @@ function AdminContent() {
             </label>
           </div>
           <div className="overflow-x-auto w-full">
-            <table className="w-full min-w-[900px]">
+            <table className="w-full min-w-[1150px]">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700">
-                  {['Player', 'Division', 'Approved', 'Status', 'Actions'].map((head) => (
+                  {['Player', 'League', 'Division', 'Approved', 'Status', 'Actions'].map((head) => (
                     <th key={head} className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">
                       {head}
                     </th>
@@ -708,8 +729,36 @@ function AdminContent() {
                 {players.map((player) => (
                   <tr key={player.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="px-4 py-4">
-                      <p className="font-black text-slate-900 dark:text-white">{player.gamertag || player.full_name}</p>
+                      <p className="font-black text-slate-900 dark:text-white">{player.manager_handle || player.gamertag || player.full_name}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">{player.email}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex flex-col gap-2">
+                        <StyledSelect
+                          value={leagueTargets[player.id] ?? player.league_name ?? LEAGUES[0].name}
+                          onChange={(event) => setLeagueTargets((current) => ({
+                            ...current,
+                            [player.id]: event.target.value,
+                          }))}
+                          className="text-xs"
+                          aria-label={`Choose a league for ${player.manager_handle || player.gamertag || player.full_name}`}
+                        >
+                          {LEAGUES.map((league) => (
+                            <option key={league.name} value={league.name}>{league.name}</option>
+                          ))}
+                        </StyledSelect>
+                        <GradientButton
+                          variant="info"
+                          onClick={() => run(
+                            () => updatePlayerLeague(player.id, leagueTargets[player.id] ?? player.league_name ?? LEAGUES[0].name),
+                            'Player league updated.',
+                          )}
+                          disabled={(leagueTargets[player.id] ?? player.league_name ?? LEAGUES[0].name) === (player.league_name ?? LEAGUES[0].name)}
+                          className="justify-center whitespace-nowrap px-2 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Reassign league
+                        </GradientButton>
+                      </div>
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex flex-col gap-2">

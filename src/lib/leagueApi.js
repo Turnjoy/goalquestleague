@@ -13,28 +13,21 @@ export async function fetchMyFixtures(userId) {
 export async function fetchStandings(division, league) {
   let query = supabase
     .from('standings')
-    .select('*, profiles!inner(is_admin, manager_handle, gamertag, full_name, custom_team_name, squad_name, league_name, division_name)')
+    .select('*')
     .order('points', { ascending: false })
     .order('goal_difference', { ascending: false })
     .order('goals_for', { ascending: false });
 
   if (division) query = query.eq('division', division);
-  if (league) query = query.eq('profiles.league_name', league);
+  if (league) query = query.eq('league_name', league);
   
   const { data, error } = await query;
   if (error) throw error;
 
-  // Filter out admins and prefer the current profile fields over legacy standings values.
-  const filteredData = (data ?? [])
-    .filter(row => !row.profiles.is_admin)
-    .map(row => ({
-      ...row,
-      player_name: row.profiles.manager_handle || row.profiles.gamertag || row.profiles.full_name || row.player_name,
-      team_name: row.profiles.custom_team_name || row.profiles.squad_name || row.team_name,
-      league_name: row.profiles.league_name,
-      division_name: row.profiles.division_name,
-    }));
-  return filteredData;
+  return (data ?? []).map(row => ({
+    ...row,
+    division_name: row.division,
+  }));
 }
 
 export async function submitScore(fixture, homeScore, awayScore) {
@@ -88,14 +81,20 @@ export async function resolveDispute(fixtureId, homeScore, awayScore, notes) {
   if (error) throw error;
 }
 
-export async function fetchPlayers(searchTerm = '') {
+export async function fetchPlayers(searchTerm = '', leagueName = '') {
   let query = supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(100);
   if (searchTerm) {
-    query = query.or(`email.ilike.%${searchTerm}%,gamertag.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%`);
+    query = query.or(`email.ilike.%${searchTerm}%,manager_handle.ilike.%${searchTerm}%,gamertag.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%`);
   }
+  if (leagueName) query = query.eq('league_name', leagueName);
   const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
+}
+
+export async function updatePlayerLeague(playerId, leagueName) {
+  const { error } = await supabase.from('profiles').update({ league_name: leagueName }).eq('id', playerId);
+  if (error) throw error;
 }
 
 export async function updatePlayerApproval(playerId, isApproved) {

@@ -5,7 +5,6 @@ import { PUBLIC_SEO } from '../lib/publicSeo.js';
 import { Link } from 'react-router-dom';
 import { isSupabaseConfigured, supabase } from '../lib/supabase.js';
 import { normalizeWhatsAppNumber } from '../lib/whatsappPhone.js';
-import { LEAGUES } from '../lib/divisions.js';
 
 const REAL_WORLD_CLUBS = [
   'real madrid', 'manchester united', 'barcelona', 'psg', 'arsenal', 'chelsea',
@@ -36,7 +35,6 @@ export default function RegisterPage() {
     custom_team_name: '',
     full_name: '',
     whatsapp_number: '',
-    league_name: 'Apex Football League' // Default to Apex
   });
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState(''); // 'success' or 'error'
@@ -139,7 +137,7 @@ export default function RegisterPage() {
             whatsapp_number: formattedWhatsApp,
             manager_handle: form.manager_handle,
             custom_team_name: form.custom_team_name,
-            league_name: form.league_name, // Include selected league
+            league_name: 'Apex Football League',
           },
         },
       });
@@ -224,20 +222,14 @@ export default function RegisterPage() {
           </label>
 
           <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
-            Select League
-            <select
-              required
-              value={form.league_name}
-              onChange={(event) => updateField('league_name', event.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              {LEAGUES.map((league) => (
-                <option key={league.name} value={league.name}>
-                  {league.name} ({league.tiers} Tiers, {league.maxPlayers} players)
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Players will be allocated to tiers sequentially (Premier → Championship → Division 1-3) within the selected league.</p>
+            League
+            <input
+              type="text"
+              readOnly
+              value="Apex Football League"
+              className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white"
+            />
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">New players join Apex first. An admin can reassign your league later.</p>
           </label>
 
           <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 sm:col-span-2">

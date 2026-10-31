@@ -14,6 +14,9 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
   gamertag text not null,
+  manager_handle text,
+  custom_team_name text,
+  league_name text not null default 'Apex Football League',
   full_name text,
   whatsapp_number text,
   efootball_username text,
@@ -77,6 +80,7 @@ create table if not exists public.fixtures (
 create table if not exists public.standings (
   id uuid primary key default gen_random_uuid(),
   division text not null,
+  league_name text not null default 'Apex Football League',
   season int not null,
   player_id uuid not null references public.profiles(id) on delete cascade,
   player_name text not null,
@@ -148,12 +152,19 @@ set search_path = public
 as $$
 declare
   target_division text;
+  target_league text;
 begin
+  select coalesce(league_name, 'Apex Football League')
+  into target_league
+  from public.profiles
+  where id = player_id_input;
+
   select catalog.name into target_division
   from public.division_catalog catalog
   where catalog.slot_limit is null
     or (select count(*) from public.profiles p
         where p.division = catalog.name
+          and p.league_name = target_league
           and p.is_approved = true
           and p.status = 'active'
           and p.id <> player_id_input) < catalog.slot_limit
@@ -318,7 +329,15 @@ security definer
 set search_path = public
 as $$
 begin
-  if new.is_approved = true and new.status = 'active' then
+  if new.is_admin = true then
+    delete from public.standings where player_id = new.id;
+  elsif new.is_approved = true and new.status = 'active' then
+    update public.standings
+    set player_name = coalesce(new.manager_handle, new.gamertag, new.full_name, 'Player'),
+        team_name = coalesce(new.custom_team_name, new.squad_name, 'eFootball Team'),
+        league_name = coalesce(new.league_name, 'Apex Football League')
+    where player_id = new.id;
+
     if old.division is distinct from new.division then
       delete from public.standings
       where player_id = new.id
@@ -326,17 +345,19 @@ begin
         and division = old.division;
     end if;
 
-    insert into public.standings (division, season, player_id, player_name, team_name)
+    insert into public.standings (division, league_name, season, player_id, player_name, team_name)
     values (
       new.division,
+      coalesce(new.league_name, 'Apex Football League'),
       extract(year from now())::int,
       new.id,
-      coalesce(new.gamertag, new.full_name, 'Player'),
-      coalesce(new.squad_name, 'eFootball Team')
+      coalesce(new.manager_handle, new.gamertag, new.full_name, 'Player'),
+      coalesce(new.custom_team_name, new.squad_name, 'eFootball Team')
     )
     on conflict (division, season, player_id) do update
       set player_name = excluded.player_name,
           team_name = excluded.team_name,
+          league_name = excluded.league_name,
           division = excluded.division;
   end if;
   return new;
@@ -345,7 +366,7 @@ $$;
 
 drop trigger if exists on_profile_division_assigned on public.profiles;
 create trigger on_profile_division_assigned
-  after update of division, is_approved on public.profiles
+  after update of division, is_approved, is_admin, league_name, manager_handle, gamertag, full_name, custom_team_name, squad_name on public.profiles
   for each row execute function public.auto_create_player_standing();
 
 drop policy if exists "profiles_select_self_or_admin" on public.profiles;
@@ -825,7 +846,10 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, email, gamertag, efootball_username, squad_name, full_name, whatsapp_number)
+  insert into public.profiles (
+    id, email, gamertag, efootball_username, squad_name, full_name,
+    whatsapp_number, manager_handle, custom_team_name, league_name
+  )
   values (
     new.id,
     new.email,
@@ -833,7 +857,10 @@ begin
     new.raw_user_meta_data->>'efootball_username',
     new.raw_user_meta_data->>'squad_name',
     new.raw_user_meta_data->>'full_name',
-    new.raw_user_meta_data->>'whatsapp_number'
+    new.raw_user_meta_data->>'whatsapp_number',
+    coalesce(new.raw_user_meta_data->>'manager_handle', new.raw_user_meta_data->>'gamertag'),
+    coalesce(new.raw_user_meta_data->>'custom_team_name', new.raw_user_meta_data->>'squad_name'),
+    'Apex Football League'
   )
   on conflict (id) do nothing;
   return new;

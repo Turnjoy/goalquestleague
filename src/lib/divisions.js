@@ -12,16 +12,21 @@ export const LEAGUES = [
   { name: 'Steel Titans League', tiers: 5, playersPerTier: 20, maxPlayers: 100 },
 ];
 
-// Tier names within each league
+// Division names retained by the existing database division catalog.
 export const TIERS = [
-  { name: 'Premier Division', tier: 1, slots: 20 },
-  { name: 'Championship', tier: 2, slots: 20 },
-  { name: 'Division 1', tier: 3, slots: 20 },
-  { name: 'Division 2', tier: 4, slots: 20 },
-  { name: 'Division 3', tier: 5, slots: 20 },
+  { name: 'Elite', tier: 1, slots: 20 },
+  { name: 'Premier', tier: 2, slots: 100 },
+  { name: 'Championship', tier: 3, slots: 100 },
+  { name: 'Challenger', tier: 4, slots: 100 },
+  { name: 'Contender', tier: 5, slots: 100 },
+  { name: 'Advanced', tier: 6, slots: 100 },
+  { name: 'Intermediate', tier: 7, slots: 100 },
+  { name: 'Foundation', tier: 8, slots: 100 },
+  { name: 'Development', tier: 9, slots: 100 },
+  { name: 'Rookie', tier: 10, slots: 80 },
+  { name: 'Trial', tier: 11, slots: null },
 ];
 
-// Legacy divisions array for backward compatibility
 export const DIVISIONS = TIERS;
 
 export const DIVISION_NAMES = DIVISIONS.map((division) => division.name);
