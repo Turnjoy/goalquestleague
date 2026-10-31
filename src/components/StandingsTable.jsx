@@ -40,7 +40,7 @@ export default function StandingsTable({ division, league }) {
         <table className="min-w-[800px] w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
           <thead className="bg-slate-900 dark:bg-slate-800 text-white">
             <tr>
-              {['#', 'Player', 'Team', 'P', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'PP', 'Pts', 'Form'].map((head) => (
+              {['#', 'League', 'Division', 'Player', 'Team', 'P', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'PP', 'Pts', 'Form'].map((head) => (
                 <th key={head} className="px-3 py-3 text-left font-bold">
                   {head}
                 </th>
@@ -51,6 +51,8 @@ export default function StandingsTable({ division, league }) {
             {rows.map((row, index) => (
               <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                 <td className="px-3 py-3 font-black text-slate-900 dark:text-white">{index + 1}</td>
+                <td className="px-3 py-3 font-bold text-slate-900 dark:text-white">{row.league_name || '-'}</td>
+                <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.division_name || '-'}</td>
                 <td className="px-3 py-3 font-bold text-slate-900 dark:text-white">{row.player_name}</td>
                 <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.team_name}</td>
                 <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.played}</td>
@@ -67,7 +69,7 @@ export default function StandingsTable({ division, league }) {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan="13" className="px-3 py-8 text-center text-slate-500 dark:text-slate-400">
+                <td colSpan="15" className="px-3 py-8 text-center text-slate-500 dark:text-slate-400">
                   No standings yet.
                 </td>
               </tr>
