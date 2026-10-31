@@ -96,7 +96,7 @@ SELECT
   l.max_players AS league_capacity,
   COUNT(p.id) AS current_players,
   l.max_players - COUNT(p.id) AS remaining_slots,
-  ROUND((COUNT(p.id)::FLOAT / l.max_players) * 100, 2) AS fill_percentage
+  ROUND(((COUNT(p.id)::NUMERIC / l.max_players) * 100), 2) AS fill_percentage
 FROM leagues l
 LEFT JOIN profiles p ON p.league_name = l.name
 GROUP BY l.id, l.name, l.max_players
@@ -112,7 +112,7 @@ SELECT
   d.capacity AS division_capacity,
   COUNT(*) AS current_players,
   d.capacity - COUNT(*) AS remaining_slots,
-  ROUND((COUNT(*)::FLOAT / d.capacity) * 100, 2) AS fill_percentage
+  ROUND(((COUNT(*)::NUMERIC / d.capacity) * 100), 2) AS fill_percentage
 FROM profiles p
 LEFT JOIN divisions d ON p.division_name = d.name
 GROUP BY p.league_name, p.tier, d.name, d.capacity
