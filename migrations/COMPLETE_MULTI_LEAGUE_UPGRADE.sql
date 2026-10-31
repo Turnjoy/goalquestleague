@@ -302,7 +302,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Admin reassign with clear parameters
 CREATE OR REPLACE FUNCTION admin_reassign_player_v2(
-  p_player_id UUID,
+  p_player_id UUID DEFAULT NULL,
   p_target_league TEXT DEFAULT NULL,
   p_target_tier INTEGER DEFAULT NULL,
   p_target_division TEXT DEFAULT NULL
