@@ -12,23 +12,18 @@ export const LEAGUES = [
   { name: 'Steel Titans League', tiers: 5, playersPerTier: 20, maxPlayers: 100 },
 ];
 
-// Division names retained by the existing database division catalog.
+// The five competitive divisions, ordered from highest to lowest.
 export const TIERS = [
   { name: 'Elite', tier: 1, slots: 20 },
   { name: 'Premier', tier: 2, slots: 100 },
   { name: 'Championship', tier: 3, slots: 100 },
   { name: 'Challenger', tier: 4, slots: 100 },
   { name: 'Contender', tier: 5, slots: 100 },
-  { name: 'Advanced', tier: 6, slots: 100 },
-  { name: 'Intermediate', tier: 7, slots: 100 },
-  { name: 'Foundation', tier: 8, slots: 100 },
-  { name: 'Development', tier: 9, slots: 100 },
-  { name: 'Rookie', tier: 10, slots: 80 },
-  { name: 'Trial', tier: 11, slots: null },
 ];
 
 export const DIVISIONS = TIERS;
 
 export const DIVISION_NAMES = DIVISIONS.map((division) => division.name);
+export const UNASSIGNED_DIVISION = 'Trial';
 
 export const LEAGUE_NAMES = LEAGUES.map((league) => league.name);

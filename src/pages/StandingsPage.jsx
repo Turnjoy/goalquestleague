@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
 import StandingsTable from '../components/StandingsTable.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -6,15 +6,14 @@ import { LEAGUES, TIERS } from '../lib/divisions.js';
 
 function StandingsContent() {
   const { profile } = useAuth();
-  // Auto-filter to player's league and division by default
   const [selectedLeague, setSelectedLeague] = useState(profile?.league_name || LEAGUES[0].name);
   const [selectedDivision, setSelectedDivision] = useState(profile?.division || TIERS[0].name);
-  
-  // If profile loads, auto-select their league/division
-  if (profile && (selectedLeague !== (profile.league_name || LEAGUES[0].name) || selectedDivision !== (profile.division || TIERS[0].name))) {
+
+  useEffect(() => {
+    if (!profile) return;
     setSelectedLeague(profile.league_name || LEAGUES[0].name);
     setSelectedDivision(profile.division || TIERS[0].name);
-  }
+  }, [profile?.id]);
 
   return (
     <section className="space-y-6">

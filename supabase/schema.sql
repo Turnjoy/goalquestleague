@@ -43,11 +43,6 @@ values
   ('Championship', 3, 100, false),
   ('Challenger', 4, 100, false),
   ('Contender', 5, 100, false),
-  ('Advanced', 6, 100, false),
-  ('Intermediate', 7, 100, false),
-  ('Foundation', 8, 100, false),
-  ('Development', 9, 100, false),
-  ('Rookie', 10, 80, false),
   ('Trial', 11, null, true)
 on conflict (name) do update set
   sort_order = excluded.sort_order,

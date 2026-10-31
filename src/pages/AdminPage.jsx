@@ -19,7 +19,7 @@ import {
   fetchAllFixtures,
   updatePlayerLeague,
 } from '../lib/leagueApi.js';
-import { DIVISION_NAMES, LEAGUES } from '../lib/divisions.js';
+import { DIVISION_NAMES, LEAGUES, UNASSIGNED_DIVISION } from '../lib/divisions.js';
 import { supabase } from '../lib/supabase.js';
 
 // Custom glowing status badge component
@@ -164,7 +164,7 @@ function AdminContent() {
   const [generatingFixtures, setGeneratingFixtures] = useState(false);
   const [rescheduleModal, setRescheduleModal] = useState({ open: false, fixtureId: null, newDate: '' });
   const [banModal, setBanModal] = useState({ open: false, playerId: null, reason: '', notes: '' });
-  const [reinstateModal, setReinstateModal] = useState({ open: false, playerId: null, newDivision: 'Trial' });
+  const [reinstateModal, setReinstateModal] = useState({ open: false, playerId: null, newDivision: UNASSIGNED_DIVISION });
   const [seasonStartDate, setSeasonStartDate] = useState('');
   const [seasonEndDate, setSeasonEndDate] = useState('');
   const [seasonStopDate, setSeasonStopDate] = useState('');
@@ -292,7 +292,7 @@ function AdminContent() {
     try {
       await liftBan(reinstateModal.playerId, reinstateModal.newDivision);
       setMessage('Player ban lifted and reinstated to division.');
-      setReinstateModal({ open: false, playerId: null, newDivision: 'Trial' });
+      setReinstateModal({ open: false, playerId: null, newDivision: UNASSIGNED_DIVISION });
       await Promise.all([loadPlayers(), loadBannedUsers()]);
     } catch (error) {
       setMessage(error.message);
@@ -1109,6 +1109,7 @@ function AdminContent() {
                   onChange={(e) => setReinstateModal({ ...reinstateModal, newDivision: e.target.value })}
                   className="w-full"
                 >
+                  <option value={UNASSIGNED_DIVISION}>{UNASSIGNED_DIVISION} (unassigned)</option>
                   {DIVISION_NAMES.map((division) => (
                     <option key={division} value={division}>{division}</option>
                   ))}
@@ -1118,7 +1119,7 @@ function AdminContent() {
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setReinstateModal({ open: false, playerId: null, newDivision: 'Trial' })}
+                onClick={() => setReinstateModal({ open: false, playerId: null, newDivision: UNASSIGNED_DIVISION })}
                 className="px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
               >
                 Cancel
