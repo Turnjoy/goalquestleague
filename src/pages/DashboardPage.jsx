@@ -23,7 +23,7 @@ function DashboardContent() {
   async function load() {
     const [fixtureRows, standingsRows, squadData] = await Promise.all([
       fetchMyFixtures(user.id),
-      fetchStandings(profile.division),
+      fetchStandings(profile.division, profile.league_name),
       fetchUserSquad(user.id)
     ]);
     setFixtures(fixtureRows);

@@ -2,6 +2,7 @@ import { Ban, Calendar, Check, Clock, RotateCcw, Search, ShieldAlert, Trophy, Us
 import { useEffect, useState } from 'react';
 import Badge from '../components/Badge.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
+import SeasonClubAssignments from '../components/SeasonClubAssignments.jsx';
 import {
   deductPlayerPoints,
   fetchDisputedFixtures,
@@ -11,15 +12,15 @@ import {
   resolveDispute,
   updatePlayerApproval,
   updatePlayerStatus,
-  generateFixtures,
   rescheduleFixture,
   permanentBanPlayer,
   liftBan,
   fetchBannedUsers,
   fetchAllFixtures,
   updatePlayerLeague,
+  generateClubFixtures,
 } from '../lib/leagueApi.js';
-import { DIVISION_NAMES, LEAGUES, UNASSIGNED_DIVISION } from '../lib/divisions.js';
+import { CLUB_LEAGUE_DIVISIONS, CLUB_LEAGUE_NAMES, DIVISION_NAMES, LEAGUES, UNASSIGNED_DIVISION } from '../lib/divisions.js';
 import { supabase } from '../lib/supabase.js';
 
 // Custom glowing status badge component
@@ -156,7 +157,9 @@ function AdminContent() {
   const [divisionTargets, setDivisionTargets] = useState({});
   const [leagueTargets, setLeagueTargets] = useState({});
   const [selectedPlayerLeague, setSelectedPlayerLeague] = useState(LEAGUES[0].name);
-  const [selectedDivision, setSelectedDivision] = useState('Elite');
+  const [selectedDivision, setSelectedDivision] = useState('Premier');
+  const [selectedFixtureLeague, setSelectedFixtureLeague] = useState(LEAGUES[0].name);
+  const [clubSeasonYear, setClubSeasonYear] = useState(String(new Date().getFullYear()));
   const [activeTab, setActiveTab] = useState('fixtures');
   const [fixtureStartDate, setFixtureStartDate] = useState('');
   const [fixtureEndDate, setFixtureEndDate] = useState('');
@@ -173,6 +176,7 @@ function AdminContent() {
 
   const tabs = [
     { id: 'fixtures', label: 'Auto Fixtures', icon: <Zap className="h-4 w-4" /> },
+    { id: 'club-assignments', label: 'Club Assignments', icon: <Trophy className="h-4 w-4" /> },
     { id: 'fixture-management', label: 'Fixture Management', icon: <Calendar className="h-4 w-4" /> },
     { id: 'season-calendar', label: 'Season Calendar', icon: <CalendarDays className="h-4 w-4" /> },
     { id: 'players', label: 'Player Desk', icon: <Crown className="h-4 w-4" /> },
@@ -253,11 +257,21 @@ function AdminContent() {
       setMessage('The stop deadline must be after the season end date.');
       return;
     }
+    if (Number(fixtureStartDate.slice(0, 4)) !== Number(clubSeasonYear)) {
+      setMessage('The selected club assignment season must match the fixture start year.');
+      return;
+    }
 
     setGeneratingFixtures(true);
     try {
-      const result = await generateFixtures(null, selectedDivision, fixtureStartDate, fixtureEndDate, fixtureStopDate);
-      setMessage(`Generated ${result.fixtures_generated} fixtures for ${result.division} division with ${result.players} players. Season deadline set to ${fixtureStopDate}.`);
+      const result = await generateClubFixtures(
+        selectedFixtureLeague,
+        selectedDivision,
+        fixtureStartDate,
+        fixtureEndDate,
+        fixtureStopDate,
+      );
+      setMessage(`Generated ${result.fixtures_generated} fixtures for ${result.league} ${result.division} clubs (${result.season_year}). Season deadline set to ${fixtureStopDate}.`);
       await loadAllFixtures();
     } catch (error) {
       setMessage(error.message);
@@ -334,10 +348,26 @@ function AdminContent() {
               <h2 className="text-xl font-black bg-gradient-to-r from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400 bg-clip-text text-transparent">
                 Auto-Fixture Generator
               </h2>
-              <p className="text-xs text-slate-600 dark:text-slate-400">AI-powered round-robin scheduling system</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">Season round-robin scheduling for assigned clubs</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Target League:</label>
+              <StyledSelect
+                value={selectedFixtureLeague}
+                onChange={(e) => {
+                  const nextLeague = e.target.value;
+                  setSelectedFixtureLeague(nextLeague);
+                  setSelectedDivision(CLUB_LEAGUE_DIVISIONS[nextLeague]?.[0] || '');
+                }}
+                className="min-w-[220px]"
+              >
+                {CLUB_LEAGUE_NAMES.map((leagueName) => (
+                  <option key={leagueName} value={leagueName}>{leagueName}</option>
+                ))}
+              </StyledSelect>
+            </div>
             <div className="flex items-center gap-3">
               <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Target Division:</label>
               <StyledSelect
@@ -345,7 +375,7 @@ function AdminContent() {
                 onChange={(e) => setSelectedDivision(e.target.value)}
                 className="min-w-[200px]"
               >
-                {DIVISION_NAMES.map((division) => (
+                {(CLUB_LEAGUE_DIVISIONS[selectedFixtureLeague] || []).map((division) => (
                   <option key={division} value={division}>{division}</option>
                 ))}
               </StyledSelect>
@@ -356,7 +386,11 @@ function AdminContent() {
                 id="fixture-start-date"
                 type="date"
                 value={fixtureStartDate}
-                onChange={(event) => setFixtureStartDate(event.target.value)}
+                onChange={(event) => {
+                  const startDate = event.target.value;
+                  setFixtureStartDate(startDate);
+                  if (startDate) setClubSeasonYear(startDate.slice(0, 4));
+                }}
               />
             </div>
             <div className="flex items-center gap-3">
@@ -369,19 +403,40 @@ function AdminContent() {
                 onChange={(event) => setFixtureEndDate(event.target.value)}
               />
             </div>
+            <div className="flex items-center gap-3">
+              <label htmlFor="fixture-stop-date" className="text-sm font-bold text-slate-700 dark:text-slate-300">Stop Deadline:</label>
+              <StyledInput
+                id="fixture-stop-date"
+                type="date"
+                value={fixtureStopDate}
+                min={fixtureEndDate || fixtureStartDate || undefined}
+                onChange={(event) => setFixtureStopDate(event.target.value)}
+              />
+            </div>
             <GradientButton
               variant="primary"
               onClick={handleGenerateFixtures}
-              disabled={generatingFixtures || !fixtureStartDate || !fixtureEndDate}
+              disabled={generatingFixtures || !fixtureStartDate || !fixtureEndDate || !fixtureStopDate}
             >
               <Trophy className="h-4 w-4" />
               {generatingFixtures ? 'Generating Fixtures...' : 'Generate Round-Robin Fixtures'}
             </GradientButton>
           </div>
           <p className="mt-3 text-xs text-slate-600 dark:text-slate-400">
-            Matchweeks are spread across the selected date range. Existing fixtures in that division and range will be replaced.
+            Matchweeks are generated for the assigned clubs. Assign all 20 clubs for the selected league, division, and season first.
           </p>
         </GlassCard>
+      )}
+
+      {activeTab === 'club-assignments' && (
+        <SeasonClubAssignments
+          league={selectedFixtureLeague}
+          division={selectedDivision}
+          seasonYear={clubSeasonYear}
+          onLeagueChange={setSelectedFixtureLeague}
+          onDivisionChange={setSelectedDivision}
+          onSeasonYearChange={setClubSeasonYear}
+        />
       )}
 
       {activeTab === 'fixture-management' && (

@@ -27,3 +27,10 @@ export const DIVISION_NAMES = DIVISIONS.map((division) => division.name);
 export const UNASSIGNED_DIVISION = 'Trial';
 
 export const LEAGUE_NAMES = LEAGUES.map((league) => league.name);
+
+export const CLUB_LEAGUE_DIVISIONS = {
+  'Apex Football League': ['Premier'],
+  'Diamond Elite League': ['Elite'],
+};
+
+export const CLUB_LEAGUE_NAMES = Object.keys(CLUB_LEAGUE_DIVISIONS);
