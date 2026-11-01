@@ -17,8 +17,9 @@ export default function SeasonClubAssignments({
   const [clubs, setClubs] = useState([]);
   const [players, setPlayers] = useState([]);
   const [assignments, setAssignments] = useState({});
+  const [savedAssignments, setSavedAssignments] = useState({});
   const [loading, setLoading] = useState(true);
-  const [savingClubId, setSavingClubId] = useState('');
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const parsedSeasonYear = Number(seasonYear);
@@ -75,7 +76,9 @@ export default function SeasonClubAssignments({
         if (!active) return;
         setClubs(clubResult.data || []);
         setPlayers(playerResult.data || []);
-        setAssignments(Object.fromEntries(assignmentRows.map(row => [row.club_id, row.player_id])));
+        const loadedAssignments = Object.fromEntries(assignmentRows.map(row => [row.club_id, row.player_id]));
+        setAssignments(loadedAssignments);
+        setSavedAssignments(loadedAssignments);
       } catch (error) {
         if (active) setErrorMessage(error instanceof Error ? error.message : 'Could not load club assignments.');
       } finally {
@@ -87,40 +90,58 @@ export default function SeasonClubAssignments({
     return () => { active = false; };
   }, [league, division, seasonYear, validSeasonYear, parsedSeasonYear]);
 
-  async function assignPlayer(clubId, playerId) {
+  function assignPlayer(clubId, playerId) {
     if (!validSeasonYear) {
       setErrorMessage('Enter a season year from 2000 to 2200.');
       return;
     }
-    setSavingClubId(clubId);
-    setMessage('');
-    setErrorMessage('');
-    try {
-      const { error } = await supabase.rpc('admin_assign_season_club', {
-        p_club_id: clubId,
-        p_season_year: parsedSeasonYear,
-        p_player_id: playerId || null,
-      });
-      if (error) throw error;
-
-      setAssignments(current => {
-        const next = { ...current };
-        if (playerId) next[clubId] = playerId;
-        else delete next[clubId];
+    setAssignments(current => {
+      const next = { ...current };
+      if (playerId) next[clubId] = playerId;
+      else delete next[clubId];
+      if (playerId) {
         for (const [otherClubId, assignedPlayerId] of Object.entries(next)) {
           if (otherClubId !== clubId && assignedPlayerId === playerId) delete next[otherClubId];
         }
-        return next;
+      }
+      return next;
+    });
+    setMessage('');
+    setErrorMessage('');
+  }
+
+  async function saveAssignments() {
+    if (!validSeasonYear) {
+      setErrorMessage('Enter a season year from 2000 to 2200.');
+      return;
+    }
+
+    setSaving(true);
+    setMessage('');
+    setErrorMessage('');
+    try {
+      const { error } = await supabase.rpc('admin_save_season_club_assignments', {
+        p_league_name: league,
+        p_division: division,
+        p_season_year: parsedSeasonYear,
+        p_assignments: clubs.map(club => ({
+          club_id: club.id,
+          player_id: assignments[club.id] || null,
+        })),
       });
-      setMessage('Assignment saved. Unplayed fixtures for this season are removed when assignments change; regenerate after all clubs are assigned.');
+      if (error) throw error;
+
+      setSavedAssignments({ ...assignments });
+      setMessage('Season assignments saved. Club names are now updated in the standings.');
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Could not save this club assignment.');
+      setErrorMessage(error instanceof Error ? error.message : 'Could not save season assignments.');
     } finally {
-      setSavingClubId('');
+      setSaving(false);
     }
   }
 
   const assignedCount = Object.keys(assignments).length;
+  const hasUnsavedChanges = clubs.some(club => (assignments[club.id] || '') !== (savedAssignments[club.id] || ''));
 
   return (
     <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-lg dark:border-slate-700 dark:bg-slate-900">
@@ -206,7 +227,7 @@ export default function SeasonClubAssignments({
                         aria-label={`Player assigned to ${club.club_name} for ${seasonYear}`}
                         value={assignments[club.id] || ''}
                         onChange={event => assignPlayer(club.id, event.target.value)}
-                        disabled={!validSeasonYear || (savingClubId !== '' && savingClubId !== club.id)}
+                        disabled={!validSeasonYear || saving}
                         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                       >
                         <option value="">Unassigned</option>
@@ -221,6 +242,19 @@ export default function SeasonClubAssignments({
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              {hasUnsavedChanges ? 'You have unsaved assignment changes.' : 'All changes are saved.'}
+            </p>
+            <button
+              type="button"
+              onClick={saveAssignments}
+              disabled={!validSeasonYear || !hasUnsavedChanges || saving || loading}
+              className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving ? 'Saving assignments...' : 'Save assignments'}
+            </button>
           </div>
           {players.length === 0 && (
             <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">

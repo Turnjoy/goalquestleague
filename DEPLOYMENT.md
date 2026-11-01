@@ -15,4 +15,4 @@ Copy `.env.example` to `.env`, set the public Supabase URL and anon key, then ru
 
 ## Database migration
 
-Before deploying the club-assignment feature, run `supabase-migrations/20261103_seed_league_clubs_and_season_assignments.sql` in the Supabase SQL Editor. It seeds the permanent Apex Premier and Diamond Elite clubs, adds season-by-season player assignments, and installs the assignment and club-fixture RPCs. Existing profile data and previous fixtures are preserved.
+Before deploying the club-assignment feature, run `supabase-migrations/20261103_seed_league_clubs_and_season_assignments.sql` and then `supabase-migrations/20261104_save_season_club_assignments.sql` in the Supabase SQL Editor, in order. They seed the permanent Apex Premier and Diamond Elite clubs, add season-by-season player assignments, and install the assignment and club-fixture RPCs. The follow-up migration enables the Save Assignments button and synchronizes the assigned club name to standings. Existing profile data and previous fixtures are preserved.

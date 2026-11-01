@@ -66,7 +66,7 @@ export default function StandingsTable({ division, league }) {
                 <td className="px-3 py-3 font-bold text-slate-900 dark:text-white">{row.league_name || '-'}</td>
                 <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.division_name || '-'}</td>
                 <td className="px-3 py-3 font-bold text-slate-900 dark:text-white">{row.player_name}</td>
-                <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.team_name}</td>
+                <td className="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300">{row.team_name || 'Not assigned'}</td>
                 <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.played}</td>
                 <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.won}</td>
                 <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.draw}</td>
