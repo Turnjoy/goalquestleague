@@ -1,4 +1,4 @@
-import { Plus, Trash2, Trophy, User, AlertCircle, AlertTriangle, CheckCircle, Upload, Scan, X, ArrowRight, Sparkles, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Trophy, User, AlertCircle, AlertTriangle, CheckCircle, Upload, ArrowRight, Sparkles, RefreshCw } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -22,8 +22,8 @@ function SquadRegistrationContent() {
 
   // AI Vision State
   const [step, setStep] = useState(1); // 1: inventory, 2: pitch, 3: review
-  const [inventoryScreenshots, setInventoryScreenshots] = useState([]);
-  const [pitchScreenshot, setPitchScreenshot] = useState(null);
+  const [allSquadImages, setAllSquadImages] = useState([]);
+  const [pitchScreenshotIndex, setPitchScreenshotIndex] = useState(null);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [aiProgress, setAiProgress] = useState(0);
   const [aiStage, setAiStage] = useState('idle');
@@ -132,41 +132,50 @@ function SquadRegistrationContent() {
   }
 
   // AI Vision Functions
-  function handleInventoryUpload(e) {
-    const files = Array.from(e.target.files);
-    if (files.length > 30) {
-      showMessage('You can upload up to 30 player list screenshots.', 'error');
+  function setSquadImageFiles(fileList) {
+    const files = Array.from(fileList);
+    if (files.length > 31) {
+      showMessage('Select one squad pitch screenshot and up to 30 inventory screenshots.', 'error');
       return;
     }
-    // Check file sizes
+    const unsupportedFiles = files.filter(file => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
+    if (unsupportedFiles.length > 0) {
+      showMessage('Use JPG, PNG, or WebP screenshots.', 'error');
+      return;
+    }
     const oversizedFiles = files.filter(file => file.size > 4 * 1024 * 1024);
     if (oversizedFiles.length > 0) {
       showMessage('Some files exceed 4MB limit. Please use smaller images.', 'error');
       return;
     }
-    setInventoryScreenshots(files);
+    setAllSquadImages(files);
+    setPitchScreenshotIndex(files.length > 0 ? files.length - 1 : null);
   }
 
-  function handlePitchUpload(e) {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 4 * 1024 * 1024) {
-        showMessage('Pitch screenshot exceeds 4MB limit. Please use a smaller image.', 'error');
-        return;
-      }
-      setPitchScreenshot(file);
-    }
+  function handleSquadImagesUpload(e) {
+    setSquadImageFiles(e.target.files);
+    e.target.value = '';
+  }
+
+  function handleSquadImagesDrop(e) {
+    e.preventDefault();
+    setSquadImageFiles(e.dataTransfer.files);
+  }
+
+  function removeSquadImage(index) {
+    setAllSquadImages(current => current.filter((_, currentIndex) => currentIndex !== index));
+    setPitchScreenshotIndex(current => {
+      if (current === index) return null;
+      if (current !== null && current > index) return current - 1;
+      return current;
+    });
   }
 
   async function processWithAI() {
     if (aiProcessingRef.current) return;
-    if (inventoryScreenshots.length < 1) {
-      showMessage('Upload at least one player list screenshot.', 'error');
+    if (allSquadImages.length < 2 || pitchScreenshotIndex === null) {
+      showMessage('Select a squad pitch screenshot and at least one inventory screenshot.', 'error');
       setStep(1);
-      return;
-    }
-    if (!pitchScreenshot) {
-      showMessage('Please upload the pitch/formation screenshot', 'error');
       return;
     }
 
@@ -204,10 +213,7 @@ function SquadRegistrationContent() {
         reader.onerror = () => reject(reader.error || new Error('Could not read screenshot.'));
       });
 
-      const [base64InventoryImages, base64PitchImage] = await Promise.all([
-        Promise.all(inventoryScreenshots.map(toBase64)),
-        toBase64(pitchScreenshot),
-      ]);
+      const base64Images = await Promise.all(allSquadImages.map(toBase64));
       setAiProgress(50);
 
       requestTimeout = setTimeout(() => controller.abort(), 320000);
@@ -223,7 +229,10 @@ function SquadRegistrationContent() {
           'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          images: [...base64InventoryImages, base64PitchImage],
+          images: [
+            ...base64Images.filter((_, index) => index !== pitchScreenshotIndex),
+            base64Images[pitchScreenshotIndex],
+          ],
         }),
       });
 
@@ -465,103 +474,94 @@ function SquadRegistrationContent() {
         {/* Step 1: Upload all screenshots together */}
         {step === 1 && (
           <div className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-xl p-6">
+            <section
+              onDragOver={event => event.preventDefault()}
+              onDrop={handleSquadImagesDrop}
+              className="rounded-2xl border-2 border-dashed border-indigo-300 bg-indigo-50/60 p-6 dark:border-indigo-500/40 dark:bg-indigo-500/5"
+            >
               <div className="flex items-start gap-4">
-                <div className="p-3 bg-blue-500 dark:bg-blue-500/20 rounded-xl">
-                  <Upload className="h-5 w-5 text-white" />
+                <div className="rounded-xl bg-indigo-600 p-3 text-white">
+                  <Upload className="h-5 w-5" />
                 </div>
-                <div className="flex-1">
-                  <h2 className="text-lg font-black text-black dark:text-white mb-2">Player List Screenshots</h2>
-                  <p className="text-sm text-black dark:text-white mb-4">
-                    Upload 1–30 screenshots showing your players.
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-black text-black dark:text-white">Upload Squad &amp; Inventory Screenshots</h2>
+                  <p className="mt-1 text-sm text-black dark:text-slate-300">
+                    Select your 1 Squad Pitch screenshot and all Inventory screenshots together (Up to 30 images).
                   </p>
-                  <div className="space-y-3">
-                    <label htmlFor="inventory-screenshots-upload" className="sr-only">
-                      Upload Player List Screenshots
-                    </label>
+                  <label htmlFor="squad-images-upload" className="mt-4 block cursor-pointer rounded-xl border border-indigo-200 bg-white p-4 text-sm font-bold text-indigo-700 hover:bg-indigo-50 dark:border-slate-700 dark:bg-slate-900 dark:text-indigo-300 dark:hover:bg-slate-800">
+                    <span>Select or drop up to 31 screenshots (JPG, PNG, or WebP; 4MB max each)</span>
                     <input
-                      id="inventory-screenshots-upload"
-                      name="inventory_screenshots"
+                      id="squad-images-upload"
+                      name="squad_images"
                       type="file"
                       multiple
-                      accept="image/png,image/jpeg"
-                      onChange={handleInventoryUpload}
+                      accept="image/*"
+                      onChange={handleSquadImagesUpload}
                       disabled={aiProcessing}
-                      className="w-full text-sm text-black dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-white dark:file:bg-slate-800 file:text-black dark:file:text-white hover:file:bg-blue-50 dark:hover:file:bg-blue-500/30"
+                      className="mt-3 block w-full cursor-pointer text-sm text-slate-700 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:font-bold file:text-white hover:file:bg-indigo-500 dark:text-slate-200"
                     />
-                    <p className="text-xs text-black dark:text-white">
-                      PNG or JPG · Up to 30 images · 4MB max each
-                    </p>
-                  </div>
-                  {inventoryScreenshots.length > 0 && (
-                    <div className="mt-4">
-                      <p className="text-sm font-semibold text-black dark:text-white mb-2">
-                        {inventoryScreenshots.length} screenshots selected
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setInventoryScreenshots([])}
-                        className="text-xs text-black dark:text-white hover:underline"
-                      >
-                        Remove all
-                      </button>
+                  </label>
+                  {allSquadImages.length > 0 && (
+                    <div className="mt-5 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">
+                          {allSquadImages.length} screenshot{allSquadImages.length === 1 ? '' : 's'} selected
+                          {pitchScreenshotIndex !== null ? ` · ${allSquadImages.length - 1} inventory` : ''}
+                        </p>
+                        <button
+                          type="button"
+                          disabled={aiProcessing}
+                          onClick={() => { setAllSquadImages([]); setPitchScreenshotIndex(null); }}
+                          className="text-xs font-bold text-rose-700 hover:underline dark:text-rose-300"
+                        >
+                          Remove all
+                        </button>
+                      </div>
+                      <ul className="space-y-2">
+                        {allSquadImages.map((file, index) => (
+                          <li key={`${file.name}-${file.lastModified}-${index}`} className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-800 dark:text-slate-100" title={file.name}>
+                              {file.name}
+                            </span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">{(file.size / (1024 * 1024)).toFixed(2)} MB</span>
+                            <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                              <input
+                                type="radio"
+                                name="pitch-screenshot"
+                                checked={pitchScreenshotIndex === index}
+                                onChange={() => setPitchScreenshotIndex(index)}
+                                disabled={aiProcessing}
+                              />
+                              Pitch screenshot
+                            </label>
+                            <button
+                              type="button"
+                              aria-label={`Remove ${file.name}`}
+                              onClick={() => removeSquadImage(index)}
+                              disabled={aiProcessing}
+                              className="rounded-md p-1 text-slate-500 hover:bg-rose-50 hover:text-rose-700 dark:text-slate-400 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
+                  )}
+                  {allSquadImages.length === 1 && (
+                    <p className="mt-3 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                      Add at least one inventory screenshot, and mark exactly one selected image as the pitch screenshot.
+                    </p>
                   )}
                 </div>
               </div>
-              </div>
-              <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/30 rounded-xl p-6">
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-purple-500 dark:bg-purple-500/20 rounded-xl">
-                  <Scan className="h-5 w-5 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-lg font-black text-black dark:text-white mb-2">Squad Pitch Screenshot</h2>
-                  <p className="text-sm text-black dark:text-white mb-4">
-                    Upload a screenshot showing your full squad and player ratings.
-                  </p>
-                  <div className="space-y-3">
-                    <label htmlFor="pitch-screenshot-upload" className="sr-only">
-                      Upload Squad Screenshot
-                    </label>
-                    <input
-                      id="pitch-screenshot-upload"
-                      name="pitch_screenshot"
-                      type="file"
-                      accept="image/png,image/jpeg"
-                      onChange={handlePitchUpload}
-                      disabled={aiProcessing}
-                      className="w-full text-sm text-black dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-white dark:file:bg-slate-800 file:text-black dark:file:text-white hover:file:bg-purple-50 dark:hover:file:bg-purple-500/30"
-                    />
-                    <p className="text-xs text-black dark:text-white">
-                      PNG or JPG · 4MB max
-                    </p>
-                  </div>
-                  {pitchScreenshot && (
-                    <div className="mt-4">
-                      <p className="text-sm font-semibold text-black dark:text-white mb-2">
-                        Squad screenshot selected
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setPitchScreenshot(null)}
-                        className="text-xs text-black dark:text-white hover:underline"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  )}
-                </div>
-                </div>
-            </div>
-            </div>
+            </section>
 
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={processWithAI}
-                disabled={!pitchScreenshot || inventoryScreenshots.length === 0 || aiProcessing}
+                disabled={allSquadImages.length < 2 || pitchScreenshotIndex === null || aiProcessing}
                 className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 text-sm font-black text-white hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/25"
               >
                 {aiProcessing ? (
