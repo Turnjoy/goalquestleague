@@ -450,33 +450,29 @@ function SquadRegistrationContent() {
         {/* Step Indicator */}
         <div className="mb-6">
           <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold ${step >= 1 ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-black dark:text-white'}`}>
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold ${step === 1 ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-black dark:text-white'}`}>
               <span className="w-6 h-6 rounded-full bg-white text-indigo-600 flex items-center justify-center text-xs font-black">1</span>
-              Inventory Screenshots
+              Upload Screenshots
             </div>
             <ArrowRight className="h-4 w-4 text-slate-400" />
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold ${step >= 2 ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-black dark:text-white'}`}>
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold ${step === 3 ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-black dark:text-white'}`}>
               <span className="w-6 h-6 rounded-full bg-white text-indigo-600 flex items-center justify-center text-xs font-black">2</span>
-              Pitch Screenshot
-            </div>
-            <ArrowRight className="h-4 w-4 text-slate-400" />
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold ${step >= 3 ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-black dark:text-white'}`}>
-              <span className="w-6 h-6 rounded-full bg-white text-indigo-600 flex items-center justify-center text-xs font-black">3</span>
               Review & Submit
             </div>
           </div>
         </div>
 
-        {/* Step 1: Inventory Screenshots */}
+        {/* Step 1: Upload all screenshots together */}
         {step === 1 && (
           <div className="space-y-6">
-            <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-xl p-6">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-xl p-6">
               <div className="flex items-start gap-4">
                 <div className="p-3 bg-blue-500 dark:bg-blue-500/20 rounded-xl">
                   <Upload className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-lg font-black text-black dark:text-white mb-2">Step 1: Upload Player List Screenshots</h2>
+                  <h2 className="text-lg font-black text-black dark:text-white mb-2">Player List Screenshots</h2>
                   <p className="text-sm text-black dark:text-white mb-4">
                     Upload 1–30 screenshots showing your players.
                   </p>
@@ -514,30 +510,14 @@ function SquadRegistrationContent() {
                   )}
                 </div>
               </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setStep(2)}
-              disabled={inventoryScreenshots.length === 0}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-black text-white hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/25"
-            >
-              Next: Upload Squad Screenshot
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
-        {/* Step 2: Pitch Screenshot */}
-        {step === 2 && (
-          <div className="space-y-6">
-            <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/30 rounded-xl p-6">
+              </div>
+              <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/30 rounded-xl p-6">
               <div className="flex items-start gap-4">
                 <div className="p-3 bg-purple-500 dark:bg-purple-500/20 rounded-xl">
                   <Scan className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-lg font-black text-black dark:text-white mb-2">Step 2: Upload Squad Screenshot</h2>
+                  <h2 className="text-lg font-black text-black dark:text-white mb-2">Squad Pitch Screenshot</h2>
                   <p className="text-sm text-black dark:text-white mb-4">
                     Upload a screenshot showing your full squad and player ratings.
                   </p>
@@ -573,17 +553,11 @@ function SquadRegistrationContent() {
                     </div>
                   )}
                 </div>
-              </div>
+                </div>
+            </div>
             </div>
 
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="text-sm font-semibold text-black dark:text-white hover:underline transition-colors"
-              >
-                ← Back
-              </button>
               <button
                 type="button"
                 onClick={processWithAI}
@@ -628,10 +602,10 @@ function SquadRegistrationContent() {
           </div>
         )}
 
-        {/* Step 3: Review & Submit */}
+        {/* Step 2: Review & Submit */}
         {step === 3 && (
           <div className="space-y-6">
-            <h2 className="text-lg font-black text-black dark:text-white mb-2">Step 3: Review & Submit Squad</h2>
+            <h2 className="text-lg font-black text-black dark:text-white mb-2">Step 2: Review & Submit Squad</h2>
             {/* AI Success Notice */}
             <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-xl p-4">
               <div className="flex items-center gap-3">
@@ -813,7 +787,7 @@ function SquadRegistrationContent() {
               </button>
               <button
                 type="button"
-                onClick={() => setStep(2)}
+                onClick={() => setStep(1)}
                 className="text-sm font-semibold text-black dark:text-white hover:underline transition-colors"
               >
                 ← Back to AI Extraction
