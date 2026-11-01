@@ -320,6 +320,7 @@ $$;
 grant execute on function public.admin_reject_player(uuid) to authenticated;
 
 drop function if exists public.admin_reassign_player(text, uuid);
+drop function if exists public.admin_reassign_player(uuid, text);
 
 create or replace function public.admin_reassign_player(player_id_input uuid, division_input text)
 returns void
@@ -342,12 +343,11 @@ begin
     raise exception 'Player not found';
   end if;
 
-  perform 1 from public.division_catalog where name = division_input;
-  if not found then
+  if division_input not in ('Elite', 'Premier', 'Championship', 'Challenger', 'Contender', 'Trial') then
     raise exception 'Unknown division: %', division_input;
   end if;
 
-  -- Admin reassignment intentionally bypasses the automatic slot-capacity allocation.
+  -- Admin placement is independent of catalog rows and automatic capacity allocation.
   update public.profiles
   set division = division_input
   where id = player_id_input;
