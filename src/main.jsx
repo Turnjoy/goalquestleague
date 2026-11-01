@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
@@ -13,9 +13,7 @@ import LeaderboardPage from './pages/LeaderboardPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 import RulesPage from './pages/RulesPage.jsx';
-import SquadRegistrationPage from './pages/SquadRegistrationPage.jsx';
 import StandingsPage from './pages/StandingsPage.jsx';
-import TransferWindowPage from './pages/TransferWindowPage.jsx';
 import './styles/index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -31,8 +29,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/squad-registration" element={<SquadRegistrationPage />} />
-              <Route path="/transfer-window" element={<TransferWindowPage />} />
+              <Route path="/squad-registration" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/transfer-window" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/fixtures" element={<FixturesPage />} />
               <Route path="/standings" element={<StandingsPage />} />

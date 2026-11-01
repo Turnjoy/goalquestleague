@@ -465,7 +465,7 @@ function AdminContent() {
               <h2 className="text-xl font-black bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
                 Season Calendar Generator
               </h2>
-              <p className="text-xs text-slate-600 dark:text-slate-400">Automated season scheduling with transfer windows</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">Automated season scheduling</p>
             </div>
           </div>
 
@@ -577,18 +577,6 @@ function AdminContent() {
                     <p className="font-bold text-rose-600 dark:text-rose-400">{calendarPreview.stop_date || 'Not set'}</p>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Pre-Season Window</p>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      {calendarPreview.pre_season_window_start} to {calendarPreview.pre_season_window_end}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Mid-Season Window</p>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      {calendarPreview.mid_season_window_start} to {calendarPreview.mid_season_window_end}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
                     <p className="text-sm text-slate-600 dark:text-slate-400">Total Fixtures</p>
                     <p className="font-bold text-slate-900 dark:text-white">{calendarPreview.total_fixtures}</p>
                   </div>
@@ -621,32 +609,7 @@ function AdminContent() {
                           });
                         if (calendarError) throw calendarError;
 
-                        // Create transfer windows
-                        const { error: windowError1 } = await supabase
-                          .from('transfer_windows')
-                          .insert({
-                            division: selectedDivision,
-                            season_year: new Date().getFullYear(),
-                            window_type: 'pre_season',
-                            start_date: calendarPreview.pre_season_window_start,
-                            end_date: calendarPreview.pre_season_window_end,
-                            is_active: new Date() >= new Date(calendarPreview.pre_season_window_start) && new Date() <= new Date(calendarPreview.pre_season_window_end)
-                          });
-                        if (windowError1) throw windowError1;
-
-                        const { error: windowError2 } = await supabase
-                          .from('transfer_windows')
-                          .insert({
-                            division: selectedDivision,
-                            season_year: new Date().getFullYear(),
-                            window_type: 'mid_season',
-                            start_date: calendarPreview.mid_season_window_start,
-                            end_date: calendarPreview.mid_season_window_end,
-                            is_active: false
-                          });
-                        if (windowError2) throw windowError2;
-
-                        setMessage('Season calendar finalized with deadline! Transfer windows created.', 'success');
+                        setMessage('Season calendar finalized with deadline.', 'success');
                         setCalendarPreview(null);
                         setSeasonStartDate('');
                         setSeasonEndDate('');

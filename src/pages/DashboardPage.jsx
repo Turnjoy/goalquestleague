@@ -1,6 +1,5 @@
-import { Bell, AlertTriangle, Trophy } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import Badge from '../components/Badge.jsx';
 import FixtureCard from '../components/FixtureCard.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
@@ -57,30 +56,6 @@ function DashboardContent() {
 
   return (
     <div className="space-y-6">
-      {/* Squad Registration Notice */}
-      {!profile?.squad_locked && (
-        <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-5 shadow-lg dark:shadow-xl">
-          <div className="flex items-start gap-4">
-            <div className="p-2 bg-amber-500 dark:bg-amber-500/20 rounded-xl">
-              <AlertTriangle className="h-5 w-5 text-white dark:text-amber-400" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-black text-amber-900 dark:text-amber-400">Register Your Squad</h3>
-              <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
-                You need to register your squad (22-25 players) before you can participate in league matches.
-              </p>
-              <Link
-                to="/squad-registration"
-                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2 text-sm font-black text-white hover:from-amber-500 hover:to-orange-500 shadow-lg shadow-amber-500/25"
-              >
-                <Trophy className="h-4 w-4" />
-                Register Squad Now
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
       <section className="grid gap-4 lg:grid-cols-[1fr_2fr]">
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-lg dark:shadow-xl">
           <img src="/goalquest-logo.webp" alt="GoalQuest League logo" className="mb-4 h-28 w-full rounded-xl object-cover" />
