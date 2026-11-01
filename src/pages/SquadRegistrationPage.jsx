@@ -1,4 +1,4 @@
-import { Plus, Trash2, Trophy, User, AlertCircle, AlertTriangle, CheckCircle, Upload, ArrowRight, Sparkles, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Trophy, User, AlertCircle, AlertTriangle, CheckCircle, Upload, X, ArrowRight, Sparkles, RefreshCw } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
