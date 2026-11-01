@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { askGeminiToCompare, askGeminiToExtractSquad, isNonRetryableGeminiError, parseGeminiCandidateResponse, parseGeminiSquadResponse } from './gemini-fallback.js';
+import { askGeminiToCompare, askGeminiToExtractSquad, askGeminiToExtractSquadFromNames, isNonRetryableGeminiError, parseGeminiCandidateResponse, parseGeminiSquadResponse } from './gemini-fallback.js';
 
 const candidates = [{ id: 'candidate-1', playerName: 'Rúben Neves' }];
 
@@ -75,6 +75,25 @@ test('Gemini can return only the exact name attached to its selected inventory c
   ] }), [{ id: 'inv-2-1', name: 'Mbpe', screenshot: 2 }]);
   assert.equal(repairedOcr.players[0].name, 'Kylian Mbappé');
   assert.equal(repairedOcr.players[0].matchStatus, 'matched');
+});
+
+test('Gemini corrects close OCR typos when matching a pitch player to the OCR roster', async () => {
+  let request;
+  const ai = { models: { generateContent: async input => {
+    request = input;
+    return { text: JSON.stringify({ players: [
+      { candidate_id: 'inv-1-1', name: 'Kylian Mbappé', name_confidence: 0.95, rating: 98, rating_confidence: 0.9, position: 'CF', position_confidence: 0.9, area: 'starter', match_confidence: 0.93 },
+    ] }) };
+  } } };
+  const result = await askGeminiToExtractSquadFromNames(ai, 'mock-model', Buffer.from('pitch-image'), [
+    { id: 'inv-1-1', name: 'Mbpe', confidence: 41 },
+  ]);
+  assert.equal(result.accepted, true);
+  assert.equal(result.players[0].name, 'Kylian Mbappé');
+  assert.equal(request.model, 'mock-model');
+  assert.equal(request.contents[0].parts.filter(part => part.inlineData).length, 1);
+  assert.match(request.contents[0].parts[0].text, /Return the correctly spelled name for that selected candidate/);
+  assert.doesNotMatch(request.contents[0].parts[0].text, /exact OCR roster candidate name/);
 });
 
 test('Gemini full-squad request includes the pitch and every inventory screenshot', async () => {
