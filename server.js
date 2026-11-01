@@ -8,14 +8,12 @@ import { imageHash } from 'image-hash';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 import { compareCardHashes, detectInventoryRegions, detectPitchRegionsFromPixels, detectPitchRegionsFromWords, validateCrop } from './crop-utils.js';
-import { extractInventoryNames } from './inventory-ocr.js';
 import {
   askGeminiToCompare,
-  askGeminiToExtractSquadWithFallback,
-  askGeminiToExtractSquadFromNamesWithFallback,
+  askGeminiToExtractSquad,
   isRetryableGeminiError,
 } from './gemini-fallback.js';
-import { classifyGeminiError, normalizeScreenshotPayload } from './gemini-pipeline.js';
+import { normalizeScreenshotPayload } from './gemini-pipeline.js';
 import { batchingMiddleware, rateLimitMiddleware, getQueueStats, clearQueue } from './middleware/batchMiddleware.js';
 
 dotenv.config();
@@ -589,9 +587,8 @@ async function handleExtractSquad(req, res) {
     console.log(`Received ${inventoryImages.length} inventory images and 1 pitch image`);
     console.log('Gemini API Key loaded:', !!process.env.GEMINI_API_KEY);
 
-    const models = getFreeTierGeminiModels();
-    const model = models[0];
-    console.log(`Free-tier Gemini model chain: ${models.join(' -> ')}`);
+    const model = 'gemini-3.8-flash';
+    console.log(`Squad extraction model: ${model} (single request with all screenshots)`);
 
     let squad;
     let squadCollectiveStrength = null;
@@ -610,14 +607,15 @@ async function handleExtractSquad(req, res) {
         apiKey: process.env.GEMINI_API_KEY,
         httpOptions: { timeout: 120000, retryOptions: { attempts: 1 } },
       });
-      inventoryCandidates = await extractInventoryNames(buffers.slice(0, -1));
-      if (inventoryCandidates.length === 0) {
-        throw new Error('INVENTORY_OCR_EMPTY');
+      const geminiImages = [];
+      for (const buffer of buffers) {
+        geminiImages.push(await prepareGeminiImage(buffer));
       }
-      const pitchBuffer = await prepareGeminiImage(buffers[buffers.length - 1]);
-      const extracted = await askGeminiToExtractSquadFromNamesWithFallback(ai, models, pitchBuffer, inventoryCandidates);
+      const pitchBuffer = geminiImages.pop();
+      pipelineCalls = 1;
+      const extracted = await askGeminiToExtractSquad(ai, model, pitchBuffer, geminiImages);
       if (!extracted.accepted) {
-        throw new Error('TACTICAL_OCR_UNCERTAIN');
+        throw new Error(`GEMINI_ROSTER_${extracted.reason || 'UNCERTAIN'}`);
       }
       squad = extracted.players;
       squadCollectiveStrength = extracted.collectiveStrength;
@@ -691,8 +689,6 @@ async function handleExtractSquad(req, res) {
 
         squadCollectiveStrength = null; // Local pipeline doesn't calculate collective strength
         squadModelUsed = 'tesseract-opencv';
-        pipelineCalls = 0;
-
         // Map inventory cards to candidate format
         inventoryCandidates = inventoryCards.map(card => ({
           id: card.id,
@@ -748,7 +744,7 @@ async function handleExtractSquad(req, res) {
           geminiMatches: processingMode === 'gemini' ? matchedPlayers : geminiMatches,
           localMatches: processingMode === 'local' ? matchedPlayers : localMatches,
           manualReview: squad.length - matchedPlayers,
-          mode: processingMode === 'gemini' ? 'tesseract_inventory_names_single_pitch_image' : 'tesseract_opencv_full_pipeline',
+          mode: processingMode === 'gemini' ? 'gemini_single_request_all_screenshots' : 'tesseract_opencv_full_pipeline',
           model: squadModelUsed,
           processingStatus: 'complete',
           geminiCalls: pipelineCalls,

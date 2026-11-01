@@ -98,17 +98,53 @@ test('Gemini corrects close OCR typos when matching a pitch player to the OCR ro
 
 test('Gemini full-squad request includes the pitch and every inventory screenshot', async () => {
   let request;
+  let generateContentCalls = 0;
+  const players = Array.from({ length: 23 }, (_, index) => ({
+    name: `Player ${String.fromCharCode(65 + index)}`,
+    name_confidence: 0.95,
+    rating: 90 + index,
+    rating_confidence: 0.9,
+    position: ['GK', 'CB', 'LB', 'RB', 'DMF', 'CMF', 'AMF', 'LMF', 'RMF', 'LWF', 'RWF', 'SS', 'CF'][index % 13],
+    position_confidence: 0.9,
+    area: index < 11 ? 'starter' : 'substitute',
+    match_confidence: 0.9,
+    inventory_screenshot: index % 2 + 1,
+  }));
   const ai = { models: { generateContent: async input => {
+    generateContentCalls++;
     request = input;
-    return { text: '{"players":[{"name":"Rúben Neves","name_confidence":0.9,"rating":103,"rating_confidence":0.9,"position":"DMF","position_confidence":0.9,"area":"starter","match_confidence":0.9,"inventory_screenshot":1}]}' };
+    return { text: JSON.stringify({ players }) };
   } } };
   const result = await askGeminiToExtractSquad(ai, 'mock-model', Buffer.from('pitch'), [Buffer.from('inventory-1'), Buffer.from('inventory-2')]);
   assert.equal(result.accepted, true);
-  assert.equal(result.players[0].name, 'Rúben Neves');
-  assert.equal(result.players[0].rating, 103);
+  assert.equal(result.players.length, 23);
+  assert.equal(result.players[0].name, 'Player A');
+  assert.equal(result.players[0].rating, 90);
   assert.equal(request.model, 'mock-model');
+  assert.equal(generateContentCalls, 1);
   const parts = request.contents[0].parts;
   assert.equal(parts.filter(part => part.inlineData).length, 3);
-  assert.match(parts[0].text, /Read each overall rating from the pitch screenshot/);
+  assert.match(parts[0].text, /1 Squad Pitch Screenshot .* multiple Inventory Screenshots/);
+  assert.match(parts[0].text, /Player Avatar\/Face/);
+  assert.match(parts[0].text, /Card Background Color\/Theme/);
+  assert.match(parts[0].text, /Output the full 23-player squad roster/);
   assert.match(parts.find(part => part.text === 'Inventory screenshot 2').text, /Inventory screenshot 2/);
+});
+
+test('Gemini incomplete 23-player response is rejected so the endpoint can use local fallback', async () => {
+  const ai = { models: { generateContent: async () => ({
+    text: JSON.stringify({ players: [{
+      name: 'Rúben Neves',
+      name_confidence: 0.9,
+      rating: 103,
+      rating_confidence: 0.9,
+      position: 'DMF',
+      position_confidence: 0.9,
+      area: 'starter',
+      match_confidence: 0.9,
+    }] }),
+  }) } };
+  const result = await askGeminiToExtractSquad(ai, 'mock-model', Buffer.from('pitch'), [Buffer.from('inventory')]);
+  assert.equal(result.accepted, false);
+  assert.equal(result.reason, 'incomplete_roster');
 });

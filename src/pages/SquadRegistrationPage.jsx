@@ -223,8 +223,7 @@ function SquadRegistrationContent() {
           'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          inventoryImages: base64InventoryImages,
-          pitchImage: base64PitchImage,
+          images: [...base64InventoryImages, base64PitchImage],
         }),
       });
 

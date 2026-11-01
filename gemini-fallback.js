@@ -194,13 +194,18 @@ export async function askGeminiToExtractSquadFromNamesWithFallback(ai, models, p
 /** Send the pitch and all uploaded inventory screenshots together in one memory-only request. */
 export async function askGeminiToExtractSquad(ai, model, pitchBuffer, inventoryBuffers) {
   const prompt = [
-    'Identify the full football squad shown on the pitch screenshot, including the starting formation and the substitutes displayed along the right side.',
-    'The first image is the pitch screenshot. The remaining images are numbered inventory screenshots from the same game account.',
-    'Use the inventory screenshots only to read player names and visually match card portraits. Ignore ratings, positions, and other numbers shown in inventory screenshots. Match by card portrait and identity, not by name alone. The same footballer may appear more than once in the inventory or squad; preserve each distinct squad slot.',
-    'Read each overall rating from the pitch screenshot. Read every player card rating and position from that screenshot. Also read the squad Collective Strength/total squad rating displayed on the pitch screen if visible. Mark each entry area as starter or substitute.',
-    'Return only players clearly visible on the pitch or substitute bench. Do not include inventory-only players or cards cut off so severely that they cannot be identified.',
-    'Never invent a name, rating, position, or match. Use null for uncertain name or rating and use confidence values from 0 to 1. inventory_screenshot is the 1-based image number where the matching card was found, or null.',
-    'Return JSON only: {"collective_strength":3186,"collective_strength_confidence":0.0,"players":[{"name":"... or null","name_confidence":0.0,"rating":104,"rating_confidence":0.0,"position":"CF","position_confidence":0.0,"area":"starter or substitute","match_confidence":0.0,"inventory_screenshot":1}]}',
+    'You are provided with 1 Squad Pitch Screenshot (nameless, containing positions, ratings, and card backgrounds) and multiple Inventory Screenshots (containing player names, ratings, and card background art).',
+    'Match every starting and substitute player from the Pitch view to their corresponding card in the Inventory views by cross-referencing:',
+    '- Player Avatar/Face',
+    '- Card Background Color/Theme (e.g., Gold vs Blue vs Purple)',
+    '- Rating',
+    'Output the full 23-player squad roster in JSON format mapping each pitch position to the correct player name extracted from the inventory.',
+    'The pitch screenshot is the first image. The remaining images are inventory screenshots, in their original upload order.',
+    'Read player names from the inventory screenshots. Match each pitch slot to the inventory card using its face/avatar, card background theme, and rating together. Do not identify a player by position or a familiar name alone. Correct obvious OCR-like spelling only when the inventory card clearly supports it.',
+    'Return exactly 23 distinct pitch slots, including every starter and substitute. Do not include inventory-only cards. Preserve duplicate footballers if the same player appears in separate pitch slots.',
+    'Read the rating and tactical position for each player from the pitch screenshot. Mark each entry area as starter or substitute. Read the matching inventory screenshot number (1-based), or null if unclear.',
+    'Do not invent names or values. Return null and lower confidence for anything unclear. Use confidence values from 0 to 1.',
+    'Return JSON only: {"collective_strength":3186,"collective_strength_confidence":0.0,"players":[{"name":"player name from inventory or null","name_confidence":0.0,"rating":104,"rating_confidence":0.0,"position":"CF","position_confidence":0.0,"area":"starter or substitute","match_confidence":0.0,"inventory_screenshot":1}]}',
   ].join('\n');
   const parts = [{ text: prompt }, { inlineData: { mimeType: 'image/jpeg', data: pitchBuffer.toString('base64') } }];
   inventoryBuffers.forEach((buffer, index) => parts.push(
@@ -212,7 +217,13 @@ export async function askGeminiToExtractSquad(ai, model, pitchBuffer, inventoryB
     contents: [{ role: 'user', parts }],
     config: { responseMimeType: 'application/json' },
   });
-  return parseGeminiSquadResponse(response.text);
+  const parsed = parseGeminiSquadResponse(response.text);
+  if (!parsed.accepted) return parsed;
+  if (parsed.players.length !== 23
+    || parsed.players.some(player => !player.name || player.position === 'Unknown' || player.isStarter === null)) {
+    return { accepted: false, reason: 'incomplete_roster' };
+  }
+  return parsed;
 }
 
 /** Retry transient overloads, then route to a second stable Flash model. */
