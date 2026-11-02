@@ -19,7 +19,7 @@ export default function FixtureCard({ fixture, userId, onSubmitScore, onConfirmS
 
   const isHome = fixture.home_player_id === userId;
   const isAway = fixture.away_player_id === userId;
-  const canSubmit = isHome && ['scheduled', 'disputed'].includes(fixture.status);
+  const canSubmit = false; // Disabled - only admin can submit scores
   const canRespond = isAway && fixture.status === 'pending_confirmation';
 
   const opponentId = isHome ? fixture.away_player_id : fixture.home_player_id;
@@ -147,6 +147,11 @@ export default function FixtureCard({ fixture, userId, onSubmitScore, onConfirmS
             <Send className="h-4 w-4" />
             Submit Score
           </button>
+        )}
+        {canSubmit && (
+          <span className="text-xs text-slate-500 dark:text-slate-400 italic">
+            (Admin only - players cannot submit scores)
+          </span>
         )}
 
         {canRespond && (

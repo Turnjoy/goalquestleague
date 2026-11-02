@@ -37,7 +37,7 @@ function FixturesContent() {
     <section className="space-y-6">
       <div>
         <h1 className="text-3xl font-black text-slate-900 dark:text-white">Fixtures</h1>
-        <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-400">Host submits. Away confirms or disputes. Evidence stays external.</p>
+        <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-400">Admin submits all scores. Evidence stays external.</p>
       </div>
       {message && <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-300 shadow-lg dark:shadow-xl">{message}</div>}
       <div className="grid gap-4 lg:grid-cols-2">
