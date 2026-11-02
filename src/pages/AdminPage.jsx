@@ -177,6 +177,9 @@ function AdminContent() {
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [scoreSubmissionModal, setScoreSubmissionModal] = useState({ open: false, fixtureId: null, homeScore: '', awayScore: '', notes: '' });
   const [submittingScore, setSubmittingScore] = useState(false);
+  const [fixtureSearchTerm, setFixtureSearchTerm] = useState('');
+  const [fixtureLeagueFilter, setFixtureLeagueFilter] = useState('');
+  const [fixtureDivisionFilter, setFixtureDivisionFilter] = useState('');
 
   const tabs = [
     { id: 'fixtures', label: 'Auto Fixtures', icon: <Zap className="h-4 w-4" /> },
@@ -207,12 +210,33 @@ function AdminContent() {
 
   async function loadAllFixtures() {
     try {
-      setAllFixtures(await fetchAllFixtures());
+      setAllFixtures(await fetchAllFixtures(fixtureDivisionFilter, fixtureLeagueFilter));
       setFixtureLoadError('');
     } catch (error) {
       setFixtureLoadError(error instanceof Error ? error.message : 'Could not load fixtures.');
     }
   }
+
+  // Filter fixtures by search term
+  const filteredFixtures = allFixtures.filter(fixture => {
+    const searchLower = fixtureSearchTerm.toLowerCase();
+    const matchesSearch =
+      fixture.home_team?.toLowerCase().includes(searchLower) ||
+      fixture.away_team?.toLowerCase().includes(searchLower) ||
+      fixture.division?.toLowerCase().includes(searchLower);
+
+    return matchesSearch;
+  });
+
+  // Group fixtures by matchweek
+  const fixturesByMatchweek = filteredFixtures.reduce((acc, fixture) => {
+    const matchweek = fixture.matchweek || 'Unknown';
+    if (!acc[matchweek]) {
+      acc[matchweek] = [];
+    }
+    acc[matchweek].push(fixture);
+    return acc;
+  }, {});
 
   useEffect(() => {
     loadDisputes();
@@ -230,6 +254,10 @@ function AdminContent() {
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, [selectedPlayerLeague]);
+
+  useEffect(() => {
+    loadAllFixtures();
+  }, [fixtureDivisionFilter, fixtureLeagueFilter]);
 
   function setEdit(id, field, value) {
     setEdits((current) => ({ ...current, [id]: { ...current[id], [field]: value } }));
@@ -485,83 +513,145 @@ function AdminContent() {
               <p className="text-xs text-slate-600 dark:text-slate-400">Complete match schedule control system</p>
             </div>
           </div>
+
+          {/* Search and Filters */}
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Search Team</label>
+              <StyledInput
+                type="text"
+                value={fixtureSearchTerm}
+                onChange={(e) => setFixtureSearchTerm(e.target.value)}
+                placeholder="Search team name..."
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Filter by League</label>
+              <StyledSelect
+                value={fixtureLeagueFilter}
+                onChange={(e) => setFixtureLeagueFilter(e.target.value)}
+                className="w-full"
+              >
+                <option value="">All Leagues</option>
+                {LEAGUES.map((league) => (
+                  <option key={league} value={league}>{league}</option>
+                ))}
+              </StyledSelect>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Filter by Division</label>
+              <StyledSelect
+                value={fixtureDivisionFilter}
+                onChange={(e) => setFixtureDivisionFilter(e.target.value)}
+                className="w-full"
+              >
+                <option value="">All Divisions</option>
+                {DIVISION_NAMES.map((division) => (
+                  <option key={division} value={division}>{division}</option>
+                ))}
+              </StyledSelect>
+            </div>
+          </div>
+
           <div className="overflow-x-auto w-full">
             {fixtureLoadError && (
               <p role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
                 Could not load fixtures: {fixtureLoadError}
               </p>
             )}
-            <table className="w-full min-w-[800px]">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-700">
-                  {['Matchweek', 'Division', 'Matchup', 'Date/Time', 'Score', 'Status', 'Actions'].map((head) => (
-                    <th key={head} className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">
-                      {head}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {allFixtures.map((fixture) => (
-                  <tr key={fixture.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="px-4 py-4">
-                      <span className="font-black text-slate-900 dark:text-white">{fixture.matchweek || '-'}</span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="text-sm text-slate-700 dark:text-slate-300">{fixture.division || '-'}</span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <p className="font-black text-slate-900 dark:text-white">{fixture.home_team}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">vs {fixture.away_team}</p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="text-sm text-slate-700 dark:text-slate-300">
-                        {fixture.fixture_date ? new Date(fixture.fixture_date).toLocaleString() : 'Not scheduled'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      {fixture.home_score !== null && fixture.away_score !== null ? (
-                        <span className="font-black text-pitch">
-                          {fixture.home_score} - {fixture.away_score}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      <GlowingBadge status={fixture.status}>{fixture.status}</GlowingBadge>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex gap-2">
-                        <GradientButton
-                          variant="info"
-                          onClick={() => setRescheduleModal({ open: true, fixtureId: fixture.id, newDate: fixture.fixture_date ? new Date(fixture.fixture_date).toISOString().slice(0, 16) : '' })}
-                          className="text-xs"
-                        >
-                          <RotateCcw className="h-3 w-3" />
-                          Reschedule
-                        </GradientButton>
-                        <GradientButton
-                          variant="success"
-                          onClick={() => setScoreSubmissionModal({ open: true, fixtureId: fixture.id, homeScore: fixture.home_score || '', awayScore: fixture.away_score || '', notes: '' })}
-                          className="text-xs"
-                        >
-                          <Check className="h-3 w-3" />
-                          Submit Score
-                        </GradientButton>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+            {Object.keys(fixturesByMatchweek).length === 0 ? (
+              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p className="text-sm font-semibold">No fixtures found</p>
+              </div>
+            ) : (
+              Object.entries(fixturesByMatchweek)
+                .sort(([a], [b]) => {
+                  // Sort matchweeks numerically if possible
+                  const aNum = parseInt(a.replace(/\D/g, '')) || 999;
+                  const bNum = parseInt(b.replace(/\D/g, '')) || 999;
+                  return aNum - bNum;
+                })
+                .map(([matchweek, fixtures]) => (
+                  <div key={matchweek} className="mb-8">
+                    {/* Matchweek Banner */}
+                    <div className="mb-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-3">
+                      <h3 className="text-lg font-black text-white">
+                        Matchweek {matchweek}
+                      </h3>
+                      <p className="text-xs text-blue-100">
+                        {fixtures.length} fixture{fixtures.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+
+                    {/* Fixtures Table for this matchweek */}
+                    <table className="w-full min-w-[800px]">
+                      <thead>
+                        <tr className="border-b border-slate-200 dark:border-slate-700">
+                          {['Division', 'Matchup', 'Date/Time', 'Score', 'Status', 'Actions'].map((head) => (
+                            <th key={head} className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">
+                              {head}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                        {fixtures.map((fixture) => (
+                          <tr key={fixture.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                            <td className="px-4 py-4">
+                              <span className="text-sm text-slate-700 dark:text-slate-300">{fixture.division || '-'}</span>
+                            </td>
+                            <td className="px-4 py-4">
+                              <p className="font-black text-slate-900 dark:text-white">{fixture.home_team}</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">vs {fixture.away_team}</p>
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className="text-sm text-slate-700 dark:text-slate-300">
+                                {fixture.fixture_date ? new Date(fixture.fixture_date).toLocaleString() : 'Not scheduled'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4">
+                              {fixture.home_score !== null && fixture.away_score !== null ? (
+                                <span className="font-black text-pitch">
+                                  {fixture.home_score} - {fixture.away_score}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-4">
+                              <GlowingBadge status={fixture.status}>{fixture.status}</GlowingBadge>
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="flex gap-2">
+                                <GradientButton
+                                  variant="info"
+                                  onClick={() => setRescheduleModal({ open: true, fixtureId: fixture.id, newDate: fixture.fixture_date ? new Date(fixture.fixture_date).toISOString().slice(0, 16) : '' })}
+                                  className="text-xs"
+                                >
+                                  <RotateCcw className="h-3 w-3" />
+                                  Reschedule
+                                </GradientButton>
+                                <GradientButton
+                                  variant="success"
+                                  onClick={() => setScoreSubmissionModal({ open: true, fixtureId: fixture.id, homeScore: fixture.home_score || '', awayScore: fixture.away_score || '', notes: '' })}
+                                  className="text-xs"
+                                >
+                                  <Check className="h-3 w-3" />
+                                  Submit Score
+                                </GradientButton>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))
+            )}
           </div>
-          {!fixtureLoadError && allFixtures.length === 0 && (
-            <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-              <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p className="text-sm font-semibold">No fixtures found in the system</p>
-            </div>
-          )}
         </GlassCard>
       )}
 
