@@ -533,26 +533,22 @@ function AdminContent() {
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex gap-2">
-                        {['scheduled', 'pending_confirmation'].includes(fixture.status) && (
-                          <>
-                            <GradientButton
-                              variant="info"
-                              onClick={() => setRescheduleModal({ open: true, fixtureId: fixture.id, newDate: fixture.fixture_date ? new Date(fixture.fixture_date).toISOString().slice(0, 16) : '' })}
-                              className="text-xs"
-                            >
-                              <RotateCcw className="h-3 w-3" />
-                              Reschedule
-                            </GradientButton>
-                            <GradientButton
-                              variant="success"
-                              onClick={() => setScoreSubmissionModal({ open: true, fixtureId: fixture.id, homeScore: fixture.home_score || '', awayScore: fixture.away_score || '', notes: '' })}
-                              className="text-xs"
-                            >
-                              <Check className="h-3 w-3" />
-                              Submit Score
-                            </GradientButton>
-                          </>
-                        )}
+                        <GradientButton
+                          variant="info"
+                          onClick={() => setRescheduleModal({ open: true, fixtureId: fixture.id, newDate: fixture.fixture_date ? new Date(fixture.fixture_date).toISOString().slice(0, 16) : '' })}
+                          className="text-xs"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          Reschedule
+                        </GradientButton>
+                        <GradientButton
+                          variant="success"
+                          onClick={() => setScoreSubmissionModal({ open: true, fixtureId: fixture.id, homeScore: fixture.home_score || '', awayScore: fixture.away_score || '', notes: '' })}
+                          className="text-xs"
+                        >
+                          <Check className="h-3 w-3" />
+                          Submit Score
+                        </GradientButton>
                       </div>
                     </td>
                   </tr>
