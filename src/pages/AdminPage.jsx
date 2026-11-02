@@ -21,7 +21,7 @@ import {
   generateClubFixtures,
   adminSubmitScore,
 } from '../lib/leagueApi.js';
-import { CLUB_LEAGUE_DIVISIONS, CLUB_LEAGUE_NAMES, DIVISION_NAMES, LEAGUES, UNASSIGNED_DIVISION } from '../lib/divisions.js';
+import { CLUB_LEAGUE_DIVISIONS, CLUB_LEAGUE_NAMES, DIVISION_NAMES, LEAGUE_NAMES, LEAGUES, UNASSIGNED_DIVISION } from '../lib/divisions.js';
 import { supabase } from '../lib/supabase.js';
 
 // Custom glowing status badge component
@@ -534,7 +534,7 @@ function AdminContent() {
                 className="w-full"
               >
                 <option value="">All Leagues</option>
-                {LEAGUES.map((league) => (
+                {LEAGUE_NAMES.map((league) => (
                   <option key={league} value={league}>{league}</option>
                 ))}
               </StyledSelect>
