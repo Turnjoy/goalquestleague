@@ -212,15 +212,6 @@ export async function fetchBannedUsers() {
   return data ?? [];
 }
 
-export async function fetchAllFixtures() {
-  const { data, error } = await supabase
-    .from('fixtures')
-    .select('*')
-    .order('fixture_date', { ascending: true });
-  if (error) throw error;
-  return data ?? [];
-}
-
 export async function fetchUserSquad(userId) {
   const { data, error } = await supabase
     .from('squad_rosters')
