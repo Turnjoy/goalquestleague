@@ -533,7 +533,7 @@ function AdminContent() {
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex gap-2">
-                        {fixture.status === 'scheduled' && (
+                        {['scheduled', 'pending_confirmation'].includes(fixture.status) && (
                           <>
                             <GradientButton
                               variant="info"
@@ -545,7 +545,7 @@ function AdminContent() {
                             </GradientButton>
                             <GradientButton
                               variant="success"
-                              onClick={() => setScoreSubmissionModal({ open: true, fixtureId: fixture.id, homeScore: '', awayScore: '', notes: '' })}
+                              onClick={() => setScoreSubmissionModal({ open: true, fixtureId: fixture.id, homeScore: fixture.home_score || '', awayScore: fixture.away_score || '', notes: '' })}
                               className="text-xs"
                             >
                               <Check className="h-3 w-3" />
