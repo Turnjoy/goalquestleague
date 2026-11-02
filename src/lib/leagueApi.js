@@ -81,6 +81,37 @@ export async function resolveDispute(fixtureId, homeScore, awayScore, notes) {
   if (error) throw error;
 }
 
+// Admin score submission - admin can submit scores for any fixture
+export async function adminSubmitScore(fixtureId, homeScore, awayScore, adminNotes = '') {
+  const { error } = await supabase
+    .from('fixtures')
+    .update({
+      home_score: Number(homeScore),
+      away_score: Number(awayScore),
+      submitted_by: 'admin',
+      submitted_at: new Date().toISOString(),
+      status: 'completed', // Admin submitted scores are auto-confirmed
+      dispute_reason: adminNotes || null,
+    })
+    .eq('id', fixtureId);
+  if (error) throw error;
+}
+
+// Fetch all fixtures for admin viewing
+export async function fetchAllFixtures(division = '', league = '') {
+  let query = supabase
+    .from('fixtures')
+    .select('*')
+    .order('fixture_date', { ascending: true });
+  
+  if (division) query = query.eq('division', division);
+  if (league) query = query.eq('league_name', league);
+  
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function fetchPlayers(searchTerm = '', leagueName = '') {
   let query = supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(100);
   if (searchTerm) {

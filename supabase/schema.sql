@@ -444,6 +444,7 @@ create policy "profiles_admin_update" on public.profiles
 drop policy if exists "fixtures_select_participant_or_admin" on public.fixtures;
 create policy "fixtures_select_participant_or_admin" on public.fixtures
   for select using (home_player_id = auth.uid() or away_player_id = auth.uid() or public.is_admin());
+grant select on public.fixtures to authenticated;
 
 drop policy if exists "fixtures_home_submit" on public.fixtures;
 create policy "fixtures_home_submit" on public.fixtures

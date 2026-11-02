@@ -19,6 +19,7 @@ import {
   fetchAllFixtures,
   updatePlayerLeague,
   generateClubFixtures,
+  adminSubmitScore,
 } from '../lib/leagueApi.js';
 import { CLUB_LEAGUE_DIVISIONS, CLUB_LEAGUE_NAMES, DIVISION_NAMES, LEAGUES, UNASSIGNED_DIVISION } from '../lib/divisions.js';
 import { supabase } from '../lib/supabase.js';
@@ -151,6 +152,7 @@ function AdminContent() {
   const [players, setPlayers] = useState([]);
   const [bannedUsers, setBannedUsers] = useState([]);
   const [allFixtures, setAllFixtures] = useState([]);
+  const [fixtureLoadError, setFixtureLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
   const [edits, setEdits] = useState({});
@@ -173,6 +175,8 @@ function AdminContent() {
   const [seasonStopDate, setSeasonStopDate] = useState('');
   const [calendarPreview, setCalendarPreview] = useState(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
+  const [scoreSubmissionModal, setScoreSubmissionModal] = useState({ open: false, fixtureId: null, homeScore: '', awayScore: '', notes: '' });
+  const [submittingScore, setSubmittingScore] = useState(false);
 
   const tabs = [
     { id: 'fixtures', label: 'Auto Fixtures', icon: <Zap className="h-4 w-4" /> },
@@ -202,7 +206,12 @@ function AdminContent() {
   }
 
   async function loadAllFixtures() {
-    setAllFixtures(await fetchAllFixtures());
+    try {
+      setAllFixtures(await fetchAllFixtures());
+      setFixtureLoadError('');
+    } catch (error) {
+      setFixtureLoadError(error instanceof Error ? error.message : 'Could not load fixtures.');
+    }
   }
 
   useEffect(() => {
@@ -310,6 +319,30 @@ function AdminContent() {
       await Promise.all([loadPlayers(), loadBannedUsers()]);
     } catch (error) {
       setMessage(error.message);
+    }
+  }
+
+  async function handleAdminSubmitScore() {
+    if (!scoreSubmissionModal.fixtureId || scoreSubmissionModal.homeScore === '' || scoreSubmissionModal.awayScore === '') {
+      setMessage('Please provide both home and away scores.');
+      return;
+    }
+
+    setSubmittingScore(true);
+    try {
+      await adminSubmitScore(
+        scoreSubmissionModal.fixtureId,
+        scoreSubmissionModal.homeScore,
+        scoreSubmissionModal.awayScore,
+        scoreSubmissionModal.notes
+      );
+      setMessage('Score submitted successfully by admin.');
+      setScoreSubmissionModal({ open: false, fixtureId: null, homeScore: '', awayScore: '', notes: '' });
+      await loadAllFixtures();
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setSubmittingScore(false);
     }
   }
 
@@ -453,10 +486,15 @@ function AdminContent() {
             </div>
           </div>
           <div className="overflow-x-auto w-full">
+            {fixtureLoadError && (
+              <p role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+                Could not load fixtures: {fixtureLoadError}
+              </p>
+            )}
             <table className="w-full min-w-[800px]">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700">
-                  {['Matchweek', 'Division', 'Matchup', 'Date/Time', 'Status', 'Actions'].map((head) => (
+                  {['Matchweek', 'Division', 'Matchup', 'Date/Time', 'Score', 'Status', 'Actions'].map((head) => (
                     <th key={head} className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">
                       {head}
                     </th>
@@ -464,13 +502,13 @@ function AdminContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {allFixtures.slice(0, 20).map((fixture) => (
+                {allFixtures.map((fixture) => (
                   <tr key={fixture.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="px-4 py-4">
-                      <span className="font-black text-slate-900 dark:text-white">{fixture.matchweek}</span>
+                      <span className="font-black text-slate-900 dark:text-white">{fixture.matchweek || '-'}</span>
                     </td>
                     <td className="px-4 py-4">
-                      <span className="text-sm text-slate-700 dark:text-slate-300">{fixture.division}</span>
+                      <span className="text-sm text-slate-700 dark:text-slate-300">{fixture.division || '-'}</span>
                     </td>
                     <td className="px-4 py-4">
                       <p className="font-black text-slate-900 dark:text-white">{fixture.home_team}</p>
@@ -482,26 +520,47 @@ function AdminContent() {
                       </span>
                     </td>
                     <td className="px-4 py-4">
+                      {fixture.home_score !== null && fixture.away_score !== null ? (
+                        <span className="font-black text-pitch">
+                          {fixture.home_score} - {fixture.away_score}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4">
                       <GlowingBadge status={fixture.status}>{fixture.status}</GlowingBadge>
                     </td>
                     <td className="px-4 py-4">
-                      {fixture.status === 'scheduled' && (
-                        <GradientButton
-                          variant="info"
-                          onClick={() => setRescheduleModal({ open: true, fixtureId: fixture.id, newDate: fixture.fixture_date ? new Date(fixture.fixture_date).toISOString().slice(0, 16) : '' })}
-                          className="text-xs"
-                        >
-                          <RotateCcw className="h-3 w-3" />
-                          Reschedule
-                        </GradientButton>
-                      )}
+                      <div className="flex gap-2">
+                        {fixture.status === 'scheduled' && (
+                          <>
+                            <GradientButton
+                              variant="info"
+                              onClick={() => setRescheduleModal({ open: true, fixtureId: fixture.id, newDate: fixture.fixture_date ? new Date(fixture.fixture_date).toISOString().slice(0, 16) : '' })}
+                              className="text-xs"
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                              Reschedule
+                            </GradientButton>
+                            <GradientButton
+                              variant="success"
+                              onClick={() => setScoreSubmissionModal({ open: true, fixtureId: fixture.id, homeScore: '', awayScore: '', notes: '' })}
+                              className="text-xs"
+                            >
+                              <Check className="h-3 w-3" />
+                              Submit Score
+                            </GradientButton>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {allFixtures.length === 0 && (
+          {!fixtureLoadError && allFixtures.length === 0 && (
             <div className="text-center py-8 text-slate-500 dark:text-slate-400">
               <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p className="text-sm font-semibold">No fixtures found in the system</p>
@@ -1043,6 +1102,73 @@ function AdminContent() {
               <GradientButton variant="info" onClick={handleRescheduleFixture}>
                 <Check className="h-4 w-4" />
                 Confirm Reschedule
+              </GradientButton>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* Score Submission Modal */}
+      {scoreSubmissionModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 backdrop-blur-sm">
+          <GlassCard className="w-full max-w-md">
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl">
+                  <Check className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">Submit Match Score</h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">Admin override for fixture scoring</p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Home Score</label>
+                  <StyledInput
+                    type="number"
+                    min="0"
+                    max="99"
+                    value={scoreSubmissionModal.homeScore}
+                    onChange={(e) => setScoreSubmissionModal({ ...scoreSubmissionModal, homeScore: e.target.value })}
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Away Score</label>
+                  <StyledInput
+                    type="number"
+                    min="0"
+                    max="99"
+                    value={scoreSubmissionModal.awayScore}
+                    onChange={(e) => setScoreSubmissionModal({ ...scoreSubmissionModal, awayScore: e.target.value })}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Admin Notes (optional)</label>
+                <StyledInput
+                  type="text"
+                  value={scoreSubmissionModal.notes}
+                  onChange={(e) => setScoreSubmissionModal({ ...scoreSubmissionModal, notes: e.target.value })}
+                  placeholder="Reason for admin submission..."
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setScoreSubmissionModal({ open: false, fixtureId: null, homeScore: '', awayScore: '', notes: '' })}
+                className="px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <GradientButton variant="success" onClick={handleAdminSubmitScore} disabled={submittingScore}>
+                {submittingScore ? 'Submitting...' : 'Submit Score'}
               </GradientButton>
             </div>
           </GlassCard>
