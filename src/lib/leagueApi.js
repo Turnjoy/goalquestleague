@@ -82,19 +82,18 @@ export async function resolveDispute(fixtureId, homeScore, awayScore, notes) {
 }
 
 // Admin score submission - admin can submit scores for any fixture
+// Uses the existing admin_resolve_dispute RPC function for reliability
 export async function adminSubmitScore(fixtureId, homeScore, awayScore, adminNotes = '') {
-  const { error } = await supabase
-    .from('fixtures')
-    .update({
-      home_score: Number(homeScore),
-      away_score: Number(awayScore),
-      submitted_by: 'admin',
-      submitted_at: new Date().toISOString(),
-      status: 'completed', // Admin submitted scores are auto-confirmed
-      dispute_reason: adminNotes || null,
-    })
-    .eq('id', fixtureId);
-  if (error) throw error;
+  const { error } = await supabase.rpc('admin_resolve_dispute', {
+    fixture_id_input: fixtureId,
+    home_score_input: Number(homeScore),
+    away_score_input: Number(awayScore),
+    notes_input: adminNotes || 'Score submitted by admin',
+  });
+  if (error) {
+    console.error('Admin score submission error:', error);
+    throw error;
+  }
 }
 
 // Fetch all fixtures for admin viewing
