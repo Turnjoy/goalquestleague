@@ -60,25 +60,44 @@ export default function StandingsTable({ division, league }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-            {rows.map((row, index) => (
-              <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                <td className="px-3 py-3 font-black text-slate-900 dark:text-white">{index + 1}</td>
-                <td className="px-3 py-3 font-bold text-slate-900 dark:text-white">{row.league_name || '-'}</td>
-                <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.division_name || '-'}</td>
-                <td className="px-3 py-3 font-bold text-slate-900 dark:text-white">{row.player_name}</td>
-                <td className="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300">{row.team_name || 'Not assigned'}</td>
-                <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.played}</td>
-                <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.won}</td>
-                <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.draw}</td>
-                <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.lost}</td>
-                <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.goals_for}</td>
-                <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.goals_against}</td>
-                <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.goal_difference}</td>
-                <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.penalty_points}</td>
-                <td className="px-3 py-3 font-black text-pitch">{row.points}</td>
-                <td className="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300">{row.form || '-'}</td>
-              </tr>
-            ))}
+            {rows.map((row, index) => {
+              const position = index + 1;
+              let positionColor = 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white';
+
+              if (position >= 1 && position <= 4) {
+                positionColor = 'bg-emerald-500 text-white font-black';
+              } else if (position >= 5 && position <= 6) {
+                positionColor = 'bg-blue-500 text-white font-black';
+              } else if (position >= 7 && position <= 17) {
+                positionColor = 'bg-yellow-400 text-slate-900 font-black';
+              } else if (position >= 18 && position <= 20) {
+                positionColor = 'bg-rose-500 text-white font-black';
+              }
+
+              return (
+                <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                  <td className="px-3 py-3">
+                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm ${positionColor}`}>
+                      {position}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 font-bold text-slate-900 dark:text-white">{row.league_name || '-'}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.division_name || '-'}</td>
+                  <td className="px-3 py-3 font-bold text-slate-900 dark:text-white">{row.player_name}</td>
+                  <td className="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300">{row.team_name || 'Not assigned'}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.played}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.won}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.draw}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.lost}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.goals_for}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.goals_against}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.goal_difference}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.penalty_points}</td>
+                  <td className="px-3 py-3 font-black text-pitch">{row.points}</td>
+                  <td className="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300">{row.form || '-'}</td>
+                </tr>
+              );
+            })}
             {rows.length === 0 && (
               <tr>
                 <td colSpan="15" className="px-3 py-8 text-center text-slate-500 dark:text-slate-400">
