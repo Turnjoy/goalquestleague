@@ -64,13 +64,9 @@ export default function StandingsTable({ division, league }) {
               const position = index + 1;
               let positionColor = 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white';
 
-              if (position >= 1 && position <= 4) {
+              if (position >= 1 && position <= 10) {
                 positionColor = 'bg-emerald-500 text-white font-black';
-              } else if (position >= 5 && position <= 6) {
-                positionColor = 'bg-blue-500 text-white font-black';
-              } else if (position >= 7 && position <= 17) {
-                positionColor = 'bg-yellow-400 text-slate-900 font-black';
-              } else if (position >= 18 && position <= 20) {
+              } else if (position >= 19 && position <= 20) {
                 positionColor = 'bg-rose-500 text-white font-black';
               }
 
