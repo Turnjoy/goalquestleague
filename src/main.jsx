@@ -12,6 +12,7 @@ import LandingPage from './pages/LandingPage.jsx';
 import LeaderboardPage from './pages/LeaderboardPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
+import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import RulesPage from './pages/RulesPage.jsx';
 import StandingsPage from './pages/StandingsPage.jsx';
 import './styles/index.css';
@@ -29,6 +30,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/squad-registration" element={<Navigate to="/dashboard" replace />} />
               <Route path="/transfer-window" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardPage />} />

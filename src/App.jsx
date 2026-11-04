@@ -2,7 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Footer from './components/Footer.jsx';
 import Navbar from './components/Navbar.jsx';
 
-const authRoutes = ['/login', '/register'];
+const authRoutes = ['/login', '/register', '/forgot-password', '/reset-password'];
 
 export default function App() {
   const { pathname } = useLocation();
