@@ -995,7 +995,7 @@ function AdminContent() {
                           disabled={(divisionTargets[player.id] ?? player.division) === player.division}
                           className="justify-center whitespace-nowrap px-2 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          Change division
+                          {getDivisionChangeLabel(player.division, divisionTargets[player.id] ?? player.division)}
                         </GradientButton>
                       </div>
                     </td>
@@ -1026,10 +1026,6 @@ function AdminContent() {
                           className="justify-center whitespace-nowrap px-2 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Assign team
-                        </GradientButton>
-                      </div>
-                    </td>
-                          {getDivisionChangeLabel(player.division, divisionTargets[player.id] ?? player.division)}
                         </GradientButton>
                       </div>
                     </td>
