@@ -61,7 +61,7 @@ function DashboardContent() {
           <img src="/goalquest-logo.webp" alt="GoalQuest League logo" className="mb-4 h-28 w-full rounded-xl object-cover" />
           <p className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Player profile</p>
           <h1 className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{profile.manager_handle || profile.gamertag || profile.full_name}</h1>
-          <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-400">{profile.custom_team_name || profile.squad_name || 'Independent player'}</p>
+          <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-400">{profile.team_name || profile.custom_team_name || profile.squad_name || 'Unassigned'}</p>
           <span className="mt-2 inline-flex rounded-full bg-emerald-100 dark:bg-emerald-500/10 px-2 py-1 text-xs font-black text-emerald-800 dark:text-emerald-400">Verified league profile</span>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <div><span className="font-bold text-slate-500 dark:text-slate-400">Division</span><div className="mt-1"><Badge tone={profile.division}>{profile.division}</Badge></div></div>

@@ -23,6 +23,7 @@ import {
 } from '../lib/leagueApi.js';
 import { CLUB_LEAGUE_DIVISIONS, CLUB_LEAGUE_NAMES, DIVISION_NAMES, LEAGUE_NAMES, LEAGUES, UNASSIGNED_DIVISION } from '../lib/divisions.js';
 import { supabase } from '../lib/supabase.js';
+import { getTeamsForDivision, isValidTeamForDivision } from '../constants/teams.js';
 
 // Custom glowing status badge component
 function GlowingBadge({ status, children }) {
@@ -180,6 +181,7 @@ function AdminContent() {
   const [fixtureSearchTerm, setFixtureSearchTerm] = useState('');
   const [fixtureLeagueFilter, setFixtureLeagueFilter] = useState('');
   const [fixtureDivisionFilter, setFixtureDivisionFilter] = useState('');
+  const [teamTargets, setTeamTargets] = useState({});
 
   const tabs = [
     { id: 'fixtures', label: 'Auto Fixtures', icon: <Zap className="h-4 w-4" /> },
@@ -371,6 +373,34 @@ function AdminContent() {
       setMessage(error.message);
     } finally {
       setSubmittingScore(false);
+    }
+  }
+
+  async function handleTeamAssignment(playerId, targetTeam, playerDivision) {
+    // Validate team name against division
+    if (!targetTeam || targetTeam === 'Unassigned') {
+      setMessage('Please select a valid team name.');
+      return;
+    }
+
+    if (!isValidTeamForDivision(targetTeam, playerDivision)) {
+      setMessage(`Team "${targetTeam}" is not valid for division "${playerDivision}". Please select a team from the correct division.`);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ team_name: targetTeam })
+        .eq('id', playerId);
+
+      if (error) throw error;
+
+      setMessage(`Team updated to "${targetTeam}" successfully.`);
+      await loadPlayers();
+      setTeamTargets(prev => ({ ...prev, [playerId]: null }));
+    } catch (error) {
+      setMessage(error.message || 'Failed to update team. Please try again.');
     }
   }
 
@@ -881,7 +911,7 @@ function AdminContent() {
             <table className="w-full min-w-[1150px]">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700">
-                  {['Player', 'League', 'Division', 'Approved', 'Status', 'Actions'].map((head) => (
+                  {['Player', 'League', 'Division', 'Team', 'Approved', 'Status', 'Actions'].map((head) => (
                     <th key={head} className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">
                       {head}
                     </th>
@@ -894,14 +924,14 @@ function AdminContent() {
                     <td className="px-4 py-4">
                       <p className="font-black text-slate-900 dark:text-white">{player.manager_handle || player.gamertag || player.full_name}</p>
                       <p className="text-xs text-slate-600 dark:text-slate-300">Full name: {player.full_name || 'Not provided'}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Team: {player.custom_team_name || player.squad_name || 'Not provided'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Team: {player.team_name || player.custom_team_name || player.squad_name || 'Unassigned'}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">WhatsApp: {player.whatsapp_number || 'Not provided'}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">{player.email}</p>
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex flex-col gap-2">
                         <StyledSelect
-                          value={leagueTargets[player.id] ?? player.league_name ?? LEAGUES[0].name}
+                          value={leagueTargets[player.id] ?? player.league_name ?? 'Unassigned'}
                           onChange={(event) => setLeagueTargets((current) => ({
                             ...current,
                             [player.id]: event.target.value,
@@ -909,17 +939,25 @@ function AdminContent() {
                           className="text-xs"
                           aria-label={`Choose a league for ${player.manager_handle || player.gamertag || player.full_name}`}
                         >
+                          <option value="Unassigned">Unassigned</option>
                           {LEAGUES.map((league) => (
                             <option key={league.name} value={league.name}>{league.name}</option>
                           ))}
                         </StyledSelect>
                         <GradientButton
                           variant="info"
-                          onClick={() => run(
-                            () => updatePlayerLeague(player.id, leagueTargets[player.id] ?? player.league_name ?? LEAGUES[0].name),
-                            'Player league updated.',
-                          )}
-                          disabled={(leagueTargets[player.id] ?? player.league_name ?? LEAGUES[0].name) === (player.league_name ?? LEAGUES[0].name)}
+                          onClick={() => {
+                            const targetLeague = leagueTargets[player.id] ?? player.league_name ?? 'Unassigned';
+                            if (targetLeague === 'Unassigned' || targetLeague === player.league_name) {
+                              setMessage('Please select a valid league to reassign.');
+                              return;
+                            }
+                            run(
+                              () => updatePlayerLeague(player.id, targetLeague),
+                              'Player league updated.',
+                            );
+                          }}
+                          disabled={!leagueTargets[player.id] || leagueTargets[player.id] === player.league_name}
                           className="justify-center whitespace-nowrap px-2 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Reassign league
@@ -957,6 +995,40 @@ function AdminContent() {
                           disabled={(divisionTargets[player.id] ?? player.division) === player.division}
                           className="justify-center whitespace-nowrap px-2 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                         >
+                          Change division
+                        </GradientButton>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex flex-col gap-2">
+                        <StyledSelect
+                          value={teamTargets[player.id] ?? player.team_name ?? 'Unassigned'}
+                          onChange={(event) => setTeamTargets((current) => ({
+                            ...current,
+                            [player.id]: event.target.value,
+                          }))}
+                          className="text-xs"
+                          aria-label={`Choose a team for ${player.gamertag || player.full_name}`}
+                        >
+                          <option value="Unassigned">Unassigned</option>
+                          {getTeamsForDivision(player.division).map((team) => (
+                            <option key={team} value={team}>{team}</option>
+                          ))}
+                        </StyledSelect>
+                        <GradientButton
+                          variant="success"
+                          onClick={() => handleTeamAssignment(
+                            player.id,
+                            teamTargets[player.id] ?? player.team_name ?? 'Unassigned',
+                            player.division
+                          )}
+                          disabled={(teamTargets[player.id] ?? player.team_name ?? 'Unassigned') === (player.team_name ?? 'Unassigned')}
+                          className="justify-center whitespace-nowrap px-2 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Assign team
+                        </GradientButton>
+                      </div>
+                    </td>
                           {getDivisionChangeLabel(player.division, divisionTargets[player.id] ?? player.division)}
                         </GradientButton>
                       </div>
