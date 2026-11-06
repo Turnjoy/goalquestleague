@@ -1,11 +1,19 @@
 import { supabase } from './supabase.js';
 
-export async function fetchMyFixtures(userId) {
-  const { data, error } = await supabase
+export async function fetchMyFixtures(userId, teamName) {
+  let query = supabase
     .from('fixtures')
-    .select('*')
-    .or(`home_player_id.eq.${userId},away_player_id.eq.${userId}`)
-    .order('fixture_date', { ascending: true });
+    .select('*');
+  
+  if (teamName) {
+    query = query.or(`home_team.eq.${teamName},away_team.eq.${teamName}`);
+  } else {
+    query = query.or(`home_player_id.eq.${userId},away_player_id.eq.${userId}`);
+  }
+  
+  query = query.order('fixture_date', { ascending: true });
+  
+  const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
 }
