@@ -81,11 +81,10 @@ export default function SeasonClubAssignments({
     supabase
       .from('profiles')
       .select('id, manager_handle, gamertag, full_name, email, league_name, division')
-      .eq('league_name', league)
       .eq('is_approved', true)
       .eq('status', 'active')
       .eq('is_admin', false)
-      .order('division, manager_handle')
+      .order('league_name, division, manager_handle')
       .then(({ data, error }) => {
         if (!active) return;
         if (error) {
@@ -95,7 +94,7 @@ export default function SeasonClubAssignments({
         }
       });
     return () => { active = false; };
-  }, [league]);
+  }, []);
 
   function assignPlayer(clubId, playerId) {
     if (!validSeasonYear) {
@@ -202,7 +201,7 @@ export default function SeasonClubAssignments({
       </div>
 
       <p className="text-xs text-slate-500 dark:text-slate-400">
-        Club names come from the selected league and division above. Player dropdowns show all players in this league (all divisions) so you can promote/relegate within the league.
+        Club names come from the selected league and division above. Player dropdowns show all approved, active players in the app — assign anyone, even unassigned players.
       </p>
 
       {message && <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{message}</p>}
@@ -244,7 +243,7 @@ export default function SeasonClubAssignments({
                         <option value="">Unassigned</option>
                         {players.map(player => (
                           <option key={player.id} value={player.id}>
-                            {playerLabel(player)}{player.division ? ` · ${player.division}` : ''}
+                            {playerLabel(player)}{player.league_name && player.division ? ` · ${player.league_name} · ${player.division}` : ''}
                           </option>
                         ))}
                       </select>
@@ -269,7 +268,7 @@ export default function SeasonClubAssignments({
           </div>
           {players.length === 0 && (
             <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-              No approved, active players in this league.
+              No approved, active players in the app.
             </p>
           )}
         </>
