@@ -40,23 +40,13 @@ export default function SeasonClubAssignments({
         return;
       }
       try {
-        const [clubResult, playerResult] = await Promise.all([
-          supabase
-            .from('league_clubs')
-            .select('id, club_number, club_name')
-            .eq('league_name', league)
-            .eq('division', division)
-            .order('club_number'),
-          supabase
-            .from('profiles')
-            .select('id, manager_handle, gamertag, full_name, email, league_name, division')
-            .eq('is_approved', true)
-            .eq('status', 'active')
-            .eq('is_admin', false)
-            .order('league_name, division, manager_handle'),
-        ]);
+        const clubResult = await supabase
+          .from('league_clubs')
+          .select('id, club_number, club_name')
+          .eq('league_name', league)
+          .eq('division', division)
+          .order('club_number');
         if (clubResult.error) throw clubResult.error;
-        if (playerResult.error) throw playerResult.error;
 
         const clubIds = (clubResult.data || []).map(club => club.id);
         let assignmentRows = [];
@@ -72,7 +62,6 @@ export default function SeasonClubAssignments({
 
         if (!active) return;
         setClubs(clubResult.data || []);
-        setPlayers(playerResult.data || []);
         const loadedAssignments = Object.fromEntries(assignmentRows.map(row => [row.club_id, row.player_id]));
         setAssignments(loadedAssignments);
         setSavedAssignments(loadedAssignments);
@@ -86,6 +75,27 @@ export default function SeasonClubAssignments({
     load();
     return () => { active = false; };
   }, [league, division, seasonYear, validSeasonYear, parsedSeasonYear]);
+
+  useEffect(() => {
+    let active = true;
+    supabase
+      .from('profiles')
+      .select('id, manager_handle, gamertag, full_name, email, league_name, division')
+      .eq('league_name', league)
+      .eq('is_approved', true)
+      .eq('status', 'active')
+      .eq('is_admin', false)
+      .order('division, manager_handle')
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          setErrorMessage(error.message);
+        } else {
+          setPlayers(data || []);
+        }
+      });
+    return () => { active = false; };
+  }, [league]);
 
   function assignPlayer(clubId, playerId) {
     if (!validSeasonYear) {
@@ -192,7 +202,7 @@ export default function SeasonClubAssignments({
       </div>
 
       <p className="text-xs text-slate-500 dark:text-slate-400">
-        Club names come from the selected league and division above. Each club dropdown lists all active, approved players across all leagues and tiers — saving moves each assigned player to the club's tier.
+        Club names come from the selected league and division above. Player dropdowns show all players in this league (all divisions) so you can promote/relegate within the league.
       </p>
 
       {message && <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{message}</p>}
@@ -234,7 +244,7 @@ export default function SeasonClubAssignments({
                         <option value="">Unassigned</option>
                         {players.map(player => (
                           <option key={player.id} value={player.id}>
-                            {playerLabel(player)}{player.league_name && player.division ? ` · ${player.league_name} · ${player.division}` : ''}
+                            {playerLabel(player)}{player.division ? ` · ${player.division}` : ''}
                           </option>
                         ))}
                       </select>
@@ -259,7 +269,7 @@ export default function SeasonClubAssignments({
           </div>
           {players.length === 0 && (
             <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-              No active, approved players in the database.
+              No approved, active players in this league.
             </p>
           )}
         </>
