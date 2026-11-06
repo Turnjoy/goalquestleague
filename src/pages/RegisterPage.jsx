@@ -138,6 +138,7 @@ export default function RegisterPage() {
             manager_handle: form.manager_handle.trim(),
             custom_team_name: form.custom_team_name.trim(),
             league_name: 'Apex Football League',
+            division: 'Trial',
           },
         },
       });
