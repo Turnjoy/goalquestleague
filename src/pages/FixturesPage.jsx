@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import FixtureCard from '../components/FixtureCard.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { confirmScore, disputeScore, fetchMyFixtures, submitScore } from '../lib/leagueApi.js';
+import { confirmScore, disputeScore, fetchAllFixtures, submitScore } from '../lib/leagueApi.js';
 import { supabase } from '../lib/supabase.js';
 
 function FixturesContent() {
@@ -11,17 +11,17 @@ function FixturesContent() {
   const [message, setMessage] = useState('');
 
   async function load() {
-    setFixtures(await fetchMyFixtures(user.id));
+    setFixtures(await fetchAllFixtures());
   }
 
   useEffect(() => {
     load();
     const channel = supabase
-      .channel(`fixtures-${user.id}`)
+      .channel('all-fixtures')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fixtures' }, load)
       .subscribe();
     return () => supabase.removeChannel(channel);
-  }, [user.id]);
+  }, []);
 
   async function run(action, success) {
     try {
@@ -36,7 +36,7 @@ function FixturesContent() {
   return (
     <section className="space-y-6">
       <div>
-        <h1 className="text-3xl font-black text-slate-900 dark:text-white">Fixtures</h1>
+        <h1 className="text-3xl font-black text-slate-900 dark:text-white">All Fixtures</h1>
         <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-400">Admin submits all scores. Evidence stays external.</p>
       </div>
       {message && <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-300 shadow-lg dark:shadow-xl">{message}</div>}

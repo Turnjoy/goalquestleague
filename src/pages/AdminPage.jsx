@@ -9,6 +9,8 @@ import {
   fetchPlayers,
   rejectPlayer,
   reassignPlayer,
+  reassignPlayerWithTeam,
+  retirePlayer,
   resolveDispute,
   updatePlayerApproval,
   updatePlayerStatus,
@@ -182,6 +184,7 @@ function AdminContent() {
   const [fixtureLeagueFilter, setFixtureLeagueFilter] = useState('');
   const [fixtureDivisionFilter, setFixtureDivisionFilter] = useState('');
   const [teamTargets, setTeamTargets] = useState({});
+  const [inheritFromTargets, setInheritFromTargets] = useState({});
 
   const tabs = [
     { id: 'fixtures', label: 'Auto Fixtures', icon: <Zap className="h-4 w-4" /> },
@@ -389,18 +392,29 @@ function AdminContent() {
     }
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ team_name: targetTeam })
-        .eq('id', playerId);
-
-      if (error) throw error;
-
-      setMessage(`Team updated to "${targetTeam}" successfully.`);
+      const inheritFrom = inheritFromTargets[player.id];
+      await reassignPlayerWithTeam(playerId, playerDivision, targetTeam, inheritFrom || null);
+      
+      const msg = inheritFrom 
+        ? `Team assigned to "${targetTeam}" and fixtures/results inherited from retired player.`
+        : `Team assigned to "${targetTeam}".`;
+      
+      setMessage(msg);
       await loadPlayers();
       setTeamTargets(prev => ({ ...prev, [playerId]: null }));
+      setInheritFromTargets(prev => ({ ...prev, [playerId]: null }));
     } catch (error) {
       setMessage(error.message || 'Failed to update team. Please try again.');
+    }
+  }
+
+  async function handleRetirePlayer(playerId) {
+    try {
+      await retirePlayer(playerId);
+      setMessage('Player retired and moved to Trial division. Their fixtures are now available for reassignment.');
+      await loadPlayers();
+    } catch (error) {
+      setMessage(error.message || 'Failed to retire player. Please try again.');
     }
   }
 
@@ -911,7 +925,7 @@ function AdminContent() {
             <table className="w-full min-w-[1150px]">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700">
-                  {['Player', 'League', 'Division', 'Team', 'Approved', 'Status', 'Actions'].map((head) => (
+                  {['Player', 'League', 'Division', 'Team', 'Inherit From', 'Approved', 'Status', 'Actions'].map((head) => (
                     <th key={head} className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">
                       {head}
                     </th>
@@ -1015,6 +1029,20 @@ function AdminContent() {
                             <option key={team} value={team}>{team}</option>
                           ))}
                         </StyledSelect>
+                        <StyledSelect
+                          value={inheritFromTargets[player.id] ?? ''}
+                          onChange={(event) => setInheritFromTargets((current) => ({
+                            ...current,
+                            [player.id]: event.target.value || null,
+                          }))}
+                          className="text-xs"
+                          aria-label={`Inherit fixtures from retired player`}
+                        >
+                          <option value="">No inheritance</option>
+                          {players.filter(p => p.status === 'retired' && p.division === player.division).map((p) => (
+                            <option key={p.id} value={p.id}>{p.manager_handle || p.gamertag} ({p.team_name || 'Unassigned'})</option>
+                          ))}
+                        </StyledSelect>
                         <GradientButton
                           variant="success"
                           onClick={() => handleTeamAssignment(
@@ -1051,6 +1079,15 @@ function AdminContent() {
                           title={player.is_approved ? 'Reject is only available for pending applicants' : 'Delete this pending player account'}
                         >
                           Reject &amp; Delete
+                        </GradientButton>
+                        <GradientButton
+                          variant="danger"
+                          onClick={() => handleRetirePlayer(player.id)}
+                          disabled={player.status === 'retired'}
+                          className="text-xs"
+                        >
+                          <UserX className="h-3 w-3" />
+                          Retire
                         </GradientButton>
                         <StyledInput
                           type="number"
