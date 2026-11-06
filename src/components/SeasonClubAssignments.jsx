@@ -140,7 +140,7 @@ export default function SeasonClubAssignments({
       setSavedAssignments({ ...assignments });
       setMessage('Season assignments saved. Club names are now updated in the standings.');
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Could not save season assignments.');
+      setErrorMessage(error?.message || 'Could not save season assignments.');
     } finally {
       setSaving(false);
     }
