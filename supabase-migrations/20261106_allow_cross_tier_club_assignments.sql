@@ -94,20 +94,6 @@ begin
       and a.player_id is distinct from x.player_id
   ) into changed;
 
-  if changed and exists (
-    select 1
-    from public.fixtures f
-    where f.league_name = p_league_name
-      and f.division = p_division
-      and (
-        f.season_year = p_season_year
-        or (f.season_year is null and extract(year from f.fixture_date)::integer = p_season_year)
-      )
-      and f.status not in ('scheduled', 'cancelled')
-  ) then
-    raise exception 'Season assignments cannot be changed after scores or disputes exist';
-  end if;
-
   if changed then
     delete from public.fixtures f
     where f.league_name = p_league_name
