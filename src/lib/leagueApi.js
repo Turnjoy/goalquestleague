@@ -119,12 +119,13 @@ export async function fetchAllFixtures(division = '', league = '') {
   return data ?? [];
 }
 
-export async function fetchPlayers(searchTerm = '', leagueName = '') {
+export async function fetchPlayers(searchTerm = '', leagueName = '', division = '') {
   let query = supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(100);
   if (searchTerm) {
     query = query.or(`email.ilike.%${searchTerm}%,manager_handle.ilike.%${searchTerm}%,gamertag.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%,whatsapp_number.ilike.%${searchTerm}%`);
   }
   if (leagueName) query = query.eq('league_name', leagueName);
+  if (division) query = query.eq('division', division);
   const { data, error } = await query;
   if (error) throw error;
   return data ?? [];

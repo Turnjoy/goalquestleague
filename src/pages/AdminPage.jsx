@@ -162,6 +162,7 @@ function AdminContent() {
   const [divisionTargets, setDivisionTargets] = useState({});
   const [leagueTargets, setLeagueTargets] = useState({});
   const [selectedPlayerLeague, setSelectedPlayerLeague] = useState(LEAGUES[0].name);
+  const [selectedPlayerDivision, setSelectedPlayerDivision] = useState('');
   const [selectedDivision, setSelectedDivision] = useState('Premier');
   const [selectedFixtureLeague, setSelectedFixtureLeague] = useState(LEAGUES[0].name);
   const [clubSeasonYear, setClubSeasonYear] = useState(String(new Date().getFullYear()));
@@ -200,9 +201,9 @@ function AdminContent() {
     setDisputes(await fetchDisputedFixtures());
   }
 
-  async function loadPlayers(term = search, leagueName = selectedPlayerLeague) {
+  async function loadPlayers(term = search, leagueName = selectedPlayerLeague, divisionName = selectedPlayerDivision) {
     try {
-      setPlayers(await fetchPlayers(term, leagueName));
+      setPlayers(await fetchPlayers(term, leagueName, divisionName));
     } catch (error) {
       setPlayers([]);
       setMessage(error instanceof Error ? error.message : 'Could not load players.');
@@ -258,7 +259,7 @@ function AdminContent() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'banned_users' }, loadBannedUsers)
       .subscribe();
     return () => supabase.removeChannel(channel);
-  }, [selectedPlayerLeague]);
+  }, [selectedPlayerLeague, selectedPlayerDivision]);
 
   useEffect(() => {
     loadAllFixtures();
@@ -906,6 +907,19 @@ function AdminContent() {
               <option value="">All leagues</option>
               {LEAGUES.map((league) => (
                 <option key={league.name} value={league.name}>{league.name}</option>
+              ))}
+            </StyledSelect>
+            <StyledSelect
+              value={selectedPlayerDivision}
+              onChange={(event) => {
+                setSelectedPlayerDivision(event.target.value);
+                loadPlayers(search, selectedPlayerLeague, event.target.value);
+              }}
+              aria-label="Filter players by division"
+            >
+              <option value="">All divisions</option>
+              {DIVISION_NAMES.map((division) => (
+                <option key={division} value={division}>{division}</option>
               ))}
             </StyledSelect>
             <label className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
-import { CLUB_LEAGUE_DIVISIONS, CLUB_LEAGUE_NAMES } from '../lib/divisions.js';
+import { CLUB_LEAGUE_DIVISIONS, CLUB_LEAGUE_NAMES, DIVISION_NAMES, LEAGUE_NAMES, UNASSIGNED_DIVISION } from '../lib/divisions.js';
 
 function playerLabel(player) {
   return player.manager_handle || player.gamertag || player.full_name || player.email || player.id;
@@ -16,6 +16,9 @@ export default function SeasonClubAssignments({
 }) {
   const [clubs, setClubs] = useState([]);
   const [players, setPlayers] = useState([]);
+  const [playerLeague, setPlayerLeague] = useState(league);
+  const [playerDivision, setPlayerDivision] = useState(division);
+  const [playersLoading, setPlayersLoading] = useState(true);
   const [assignments, setAssignments] = useState({});
   const [savedAssignments, setSavedAssignments] = useState({});
   const [loading, setLoading] = useState(true);
@@ -41,25 +44,13 @@ export default function SeasonClubAssignments({
         return;
       }
       try {
-        const [clubResult, playerResult] = await Promise.all([
-          supabase
-            .from('league_clubs')
-            .select('id, club_number, club_name')
-            .eq('league_name', league)
-            .eq('division', division)
-            .order('club_number'),
-          supabase
-            .from('profiles')
-            .select('id, manager_handle, gamertag, full_name, email')
-            .eq('league_name', league)
-            .eq('division', division)
-            .eq('is_approved', true)
-            .eq('status', 'active')
-            .eq('is_admin', false)
-            .order('manager_handle'),
-        ]);
+        const clubResult = await supabase
+          .from('league_clubs')
+          .select('id, club_number, club_name')
+          .eq('league_name', league)
+          .eq('division', division)
+          .order('club_number');
         if (clubResult.error) throw clubResult.error;
-        if (playerResult.error) throw playerResult.error;
 
         const clubIds = (clubResult.data || []).map(club => club.id);
         let assignmentRows = [];
@@ -75,7 +66,6 @@ export default function SeasonClubAssignments({
 
         if (!active) return;
         setClubs(clubResult.data || []);
-        setPlayers(playerResult.data || []);
         const loadedAssignments = Object.fromEntries(assignmentRows.map(row => [row.club_id, row.player_id]));
         setAssignments(loadedAssignments);
         setSavedAssignments(loadedAssignments);
@@ -89,6 +79,36 @@ export default function SeasonClubAssignments({
     load();
     return () => { active = false; };
   }, [league, division, seasonYear, validSeasonYear, parsedSeasonYear]);
+
+  useEffect(() => {
+    setPlayerLeague(league);
+    setPlayerDivision(division);
+  }, [league, division]);
+
+  useEffect(() => {
+    let active = true;
+    setPlayersLoading(true);
+    supabase
+      .from('profiles')
+      .select('id, manager_handle, gamertag, full_name, email, division')
+      .eq('league_name', playerLeague)
+      .eq('division', playerDivision)
+      .eq('is_approved', true)
+      .eq('status', 'active')
+      .eq('is_admin', false)
+      .order('manager_handle')
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          setPlayers([]);
+          setErrorMessage(error.message);
+        } else {
+          setPlayers(data || []);
+        }
+        setPlayersLoading(false);
+      });
+    return () => { active = false; };
+  }, [playerLeague, playerDivision]);
 
   function assignPlayer(clubId, playerId) {
     if (!validSeasonYear) {
@@ -194,6 +214,36 @@ export default function SeasonClubAssignments({
         </label>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+          Player names from league
+          <select
+            value={playerLeague}
+            onChange={event => setPlayerLeague(event.target.value)}
+            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+          >
+            {LEAGUE_NAMES.map(leagueName => (
+              <option key={leagueName} value={leagueName}>{leagueName}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+          Player names from division
+          <select
+            value={playerDivision}
+            onChange={event => setPlayerDivision(event.target.value)}
+            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+          >
+            {[...DIVISION_NAMES, UNASSIGNED_DIVISION].map(divisionName => (
+              <option key={divisionName} value={divisionName}>{divisionName}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        Club names come from the selected league and division above. Player names can be pulled from any league tier — saving moves each assigned player to the club's tier.
+      </p>
+
       {message && <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{message}</p>}
       {errorMessage && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800 dark:bg-rose-500/10 dark:text-rose-300">{errorMessage}</p>}
 
@@ -227,13 +277,13 @@ export default function SeasonClubAssignments({
                         aria-label={`Player assigned to ${club.club_name} for ${seasonYear}`}
                         value={assignments[club.id] || ''}
                         onChange={event => assignPlayer(club.id, event.target.value)}
-                        disabled={!validSeasonYear || saving}
+                        disabled={!validSeasonYear || saving || playersLoading}
                         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                       >
                         <option value="">Unassigned</option>
                         {players.map(player => (
                           <option key={player.id} value={player.id}>
-                            {playerLabel(player)}
+                            {playerLabel(player)}{player.division ? ` · ${player.division}` : ''}
                           </option>
                         ))}
                       </select>
@@ -256,9 +306,11 @@ export default function SeasonClubAssignments({
               {saving ? 'Saving assignments...' : 'Save assignments'}
             </button>
           </div>
-          {players.length === 0 && (
+          {playersLoading ? (
+            <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Loading players from {playerLeague} · {playerDivision}...</p>
+          ) : players.length === 0 && (
             <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-              No active, approved players are currently assigned to this league division.
+              No active, approved players in {playerLeague} · {playerDivision}.
             </p>
           )}
         </>
