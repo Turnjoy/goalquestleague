@@ -25,12 +25,12 @@ export async function fetchMyFixtures(userId) {
   if (error) throw error;
 
   return (data ?? []).map(fixture => {
-    const seasonYear = fixture.season_year ?? (
-      fixture.fixture_date ? new Date(fixture.fixture_date).getUTCFullYear() : null
-    );
+    const seasonDate = fixture.played_at ?? fixture.fixture_date;
+    const seasonYear = fixture.season_year
+      ?? (seasonDate ? new Date(seasonDate).getUTCFullYear() : new Date().getUTCFullYear());
     return {
       ...fixture,
-      assignedClubId: seasonYear === null ? null : assignmentsBySeason.get(seasonYear) ?? null,
+      assignedClubId: assignmentsBySeason.get(seasonYear) ?? null,
     };
   });
 }

@@ -1,3 +1,42 @@
+update public.fixtures f
+set home_club_id = coalesce(
+      f.home_club_id,
+      (
+        select c.id
+        from public.league_clubs c
+        where c.league_name = f.league_name
+          and c.division = f.division
+          and lower(btrim(c.club_name)) = lower(btrim(f.home_team))
+      )
+    ),
+    away_club_id = coalesce(
+      f.away_club_id,
+      (
+        select c.id
+        from public.league_clubs c
+        where c.league_name = f.league_name
+          and c.division = f.division
+          and lower(btrim(c.club_name)) = lower(btrim(f.away_team))
+      )
+    )
+where (f.home_club_id is null or f.away_club_id is null)
+  and (
+    exists (
+      select 1
+      from public.league_clubs c
+      where c.league_name = f.league_name
+        and c.division = f.division
+        and lower(btrim(c.club_name)) = lower(btrim(f.home_team))
+    )
+    or exists (
+      select 1
+      from public.league_clubs c
+      where c.league_name = f.league_name
+        and c.division = f.division
+        and lower(btrim(c.club_name)) = lower(btrim(f.away_team))
+    )
+  );
+
 create or replace function public.admin_save_season_club_assignments(
   p_league_name text,
   p_division text,
@@ -184,8 +223,8 @@ drop policy if exists "fixtures_select_participant_or_admin" on public.fixtures;
 create policy "fixtures_select_participant_or_admin" on public.fixtures
   for select using (
     public.is_admin()
-    or home_player_id = auth.uid()
-    or away_player_id = auth.uid()
+    or (home_club_id is null and home_player_id = auth.uid())
+    or (away_club_id is null and away_player_id = auth.uid())
     or exists (
       select 1
       from public.season_club_assignments a
