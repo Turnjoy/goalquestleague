@@ -11,6 +11,9 @@ import { supabase } from '../lib/supabase.js';
 function DashboardContent() {
   const { user, profile } = useAuth();
   const [fixtures, setFixtures] = useState([]);
+  const [fixtureError, setFixtureError] = useState('');
+  const [loadingFixtures, setLoadingFixtures] = useState(true);
+  const [dashboardDataError, setDashboardDataError] = useState('');
   const [standing, setStanding] = useState(null);
   const [notice, setNotice] = useState('');
   const [userSquad, setUserSquad] = useState(null);
@@ -27,16 +30,34 @@ function DashboardContent() {
   );
 
   async function load() {
-    const [fixtureRows, standingsRows, squadData] = await Promise.all([
+    const [fixtureResult, standingsResult, squadResult] = await Promise.allSettled([
       fetchMyFixtures(user.id),
       fetchStandings(profile.division, profile.league_name),
-      fetchUserSquad(user.id)
+      fetchUserSquad(user.id),
     ]);
-    setFixtures(fixtureRows);
-    const myIndex = standingsRows.findIndex((row) => row.player_id === user.id);
-    const row = standingsRows[myIndex] ?? null;
-    setStanding(row ? { ...row, rank: myIndex + 1 } : null);
-    setUserSquad(squadData);
+
+    if (fixtureResult.status === 'fulfilled') {
+      setFixtures(fixtureResult.value);
+      setFixtureError('');
+    } else {
+      setFixtureError(`Could not load fixtures: ${fixtureResult.reason?.message || 'Unknown error'}`);
+    }
+    setLoadingFixtures(false);
+
+    const dataErrors = [];
+    if (standingsResult.status === 'fulfilled') {
+      const myIndex = standingsResult.value.findIndex((row) => row.player_id === user.id);
+      const row = standingsResult.value[myIndex] ?? null;
+      setStanding(row ? { ...row, rank: myIndex + 1 } : null);
+    } else {
+      dataErrors.push(`standings: ${standingsResult.reason?.message || 'Unknown error'}`);
+    }
+    if (squadResult.status === 'fulfilled') {
+      setUserSquad(squadResult.value);
+    } else {
+      dataErrors.push(`squad: ${squadResult.reason?.message || 'Unknown error'}`);
+    }
+    setDashboardDataError(dataErrors.length ? `Could not load ${dataErrors.join('; ')}.` : '');
     setLoadingSquad(false);
   }
 
@@ -84,6 +105,8 @@ function DashboardContent() {
             {pendingForMe.length > 0 && <span className="inline-flex items-center gap-2 rounded bg-blue-100 dark:bg-blue-500/10 px-3 py-1 text-sm font-bold text-blue-800 dark:text-blue-400"><Bell className="h-4 w-4" /> Score awaiting you</span>}
           </div>
           {notice && <div className="mt-4 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-3 py-2 text-sm font-semibold text-slate-800 dark:text-slate-300">{notice}</div>}
+          {dashboardDataError && <div role="alert" className="mt-4 rounded border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-sm font-semibold text-amber-900 dark:text-amber-200">{dashboardDataError}</div>}
+          {fixtureError && <div role="alert" className="mt-4 rounded border border-rose-200 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 px-3 py-2 text-sm font-semibold text-rose-900 dark:text-rose-200">{fixtureError}</div>}
           <div className="mt-4 grid gap-4">
             {visibleFixtures.map((fixture) => (
               <FixtureCard
@@ -94,7 +117,8 @@ function DashboardContent() {
                 onDisputeScore={(id, reason) => withNotice(() => disputeScore(id, reason), 'Match disputed. Admin has been alerted in the dispute desk.')}
               />
             ))}
-            {fixtures.length === 0 && <p className="py-8 text-center text-slate-500 dark:text-slate-400">No active fixtures yet.</p>}
+            {loadingFixtures && <p className="py-8 text-center text-slate-500 dark:text-slate-400">Loading fixtures…</p>}
+            {!loadingFixtures && !fixtureError && fixtures.length === 0 && <p className="py-8 text-center text-slate-500 dark:text-slate-400">No active fixtures yet.</p>}
           </div>
           {fixtures.length > 4 && (
             <button
