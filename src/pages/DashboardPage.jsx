@@ -1,4 +1,4 @@
-import { Bell } from 'lucide-react';
+import { Bell, ChevronDown, ChevronUp } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import Badge from '../components/Badge.jsx';
 import FixtureCard from '../components/FixtureCard.jsx';
@@ -15,6 +15,8 @@ function DashboardContent() {
   const [notice, setNotice] = useState('');
   const [userSquad, setUserSquad] = useState(null);
   const [loadingSquad, setLoadingSquad] = useState(true);
+  const [showAllFixtures, setShowAllFixtures] = useState(false);
+  const visibleFixtures = showAllFixtures ? fixtures : fixtures.slice(0, 4);
   const pendingForMe = useMemo(
     () => fixtures.filter((fixture) =>
       fixture.status === 'pending_confirmation'
@@ -83,7 +85,7 @@ function DashboardContent() {
           </div>
           {notice && <div className="mt-4 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-3 py-2 text-sm font-semibold text-slate-800 dark:text-slate-300">{notice}</div>}
           <div className="mt-4 grid gap-4">
-            {fixtures.slice(0, 4).map((fixture) => (
+            {visibleFixtures.map((fixture) => (
               <FixtureCard
                 key={fixture.id}
                 fixture={fixture}
@@ -94,6 +96,26 @@ function DashboardContent() {
             ))}
             {fixtures.length === 0 && <p className="py-8 text-center text-slate-500 dark:text-slate-400">No active fixtures yet.</p>}
           </div>
+          {fixtures.length > 4 && (
+            <button
+              type="button"
+              onClick={() => setShowAllFixtures((showing) => !showing)}
+              aria-expanded={showAllFixtures}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            >
+              {showAllFixtures ? (
+                <>
+                  Show fewer fixtures
+                  <ChevronUp className="h-4 w-4" />
+                </>
+              ) : (
+                <>
+                  Show all {fixtures.length} fixtures
+                  <ChevronDown className="h-4 w-4" />
+                </>
+              )}
+            </button>
+          )}
         </div>
       </section>
       <section>
