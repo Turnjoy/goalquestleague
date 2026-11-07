@@ -2,29 +2,27 @@ import { useEffect, useState } from 'react';
 import FixtureCard from '../components/FixtureCard.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { confirmScore, disputeScore, fetchMyFixtures, submitScore } from '../lib/leagueApi.js';
+import { confirmScore, disputeScore, fetchMyFixtures } from '../lib/leagueApi.js';
 import { supabase } from '../lib/supabase.js';
 
 function FixturesContent() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [fixtures, setFixtures] = useState([]);
   const [message, setMessage] = useState('');
 
   async function load() {
-    if (!profile) return;
-    
-    // Show fixtures where the player's team is either home or away
-    setFixtures(await fetchMyFixtures(user.id, profile.team_name));
+    if (!user) return;
+    setFixtures(await fetchMyFixtures(user.id));
   }
 
   useEffect(() => {
     load();
     const channel = supabase
-      .channel(`fixtures-${profile?.team_name || 'all'}`)
+      .channel(`fixtures-${user?.id || 'all'}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fixtures' }, load)
       .subscribe();
     return () => supabase.removeChannel(channel);
-  }, [profile?.team_name]);
+  }, [user?.id]);
 
   async function run(action, success) {
     try {
@@ -51,7 +49,6 @@ function FixturesContent() {
             key={fixture.id}
             fixture={fixture}
             userId={user.id}
-            onSubmitScore={(item, home, away) => run(() => submitScore(item, home, away), 'Score submitted.')}
             onConfirmScore={(id) => run(() => confirmScore(id), 'Score confirmed.')}
             onDisputeScore={(id, reason) => run(() => disputeScore(id, reason), 'Dispute sent to admin.')}
           />

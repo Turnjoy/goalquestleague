@@ -1,21 +1,38 @@
 import { supabase } from './supabase.js';
 
-export async function fetchMyFixtures(userId, teamName) {
-  let query = supabase
-    .from('fixtures')
-    .select('*');
-  
-  if (teamName) {
-    query = query.or(`home_team.eq.${teamName},away_team.eq.${teamName}`);
-  } else {
-    query = query.or(`home_player_id.eq.${userId},away_player_id.eq.${userId}`);
+export async function fetchMyFixtures(userId) {
+  const { data: assignments, error: assignmentsError } = await supabase
+    .from('season_club_assignments')
+    .select('season_year, club_id')
+    .eq('player_id', userId);
+  if (assignmentsError) throw assignmentsError;
+
+  const assignmentsBySeason = new Map(
+    (assignments ?? []).map(assignment => [assignment.season_year, assignment.club_id]),
+  );
+  const clubIds = [...new Set(assignmentsBySeason.values())];
+  const fixtureFilters = [`home_player_id.eq.${userId}`, `away_player_id.eq.${userId}`];
+  if (clubIds.length > 0) {
+    const clubIdFilter = clubIds.join(',');
+    fixtureFilters.push(`home_club_id.in.(${clubIdFilter})`, `away_club_id.in.(${clubIdFilter})`);
   }
-  
-  query = query.order('fixture_date', { ascending: true });
-  
-  const { data, error } = await query;
+
+  const { data, error } = await supabase
+    .from('fixtures')
+    .select('*')
+    .or(fixtureFilters.join(','))
+    .order('fixture_date', { ascending: true });
   if (error) throw error;
-  return data ?? [];
+
+  return (data ?? []).map(fixture => {
+    const seasonYear = fixture.season_year ?? (
+      fixture.fixture_date ? new Date(fixture.fixture_date).getUTCFullYear() : null
+    );
+    return {
+      ...fixture,
+      assignedClubId: seasonYear === null ? null : assignmentsBySeason.get(seasonYear) ?? null,
+    };
+  });
 }
 
 export async function fetchStandings(division, league) {
@@ -38,34 +55,16 @@ export async function fetchStandings(division, league) {
   }));
 }
 
-export async function submitScore(fixture, homeScore, awayScore) {
-  const { error } = await supabase
-    .from('fixtures')
-    .update({
-      home_score: Number(homeScore),
-      away_score: Number(awayScore),
-      submitted_by: fixture.home_player_id,
-      submitted_at: new Date().toISOString(),
-      status: 'pending_confirmation',
-    })
-    .eq('id', fixture.id)
-    .eq('home_player_id', fixture.home_player_id);
-  if (error) throw error;
-}
-
 export async function confirmScore(fixtureId) {
   const { error } = await supabase.rpc('confirm_fixture_score', { fixture_id_input: fixtureId });
   if (error) throw error;
 }
 
 export async function disputeScore(fixtureId, reason) {
-  const { error } = await supabase
-    .from('fixtures')
-    .update({
-      status: 'disputed',
-      dispute_reason: reason,
-    })
-    .eq('id', fixtureId);
+  const { error } = await supabase.rpc('dispute_fixture_score', {
+    fixture_id_input: fixtureId,
+    reason_input: reason,
+  });
   if (error) throw error;
 }
 

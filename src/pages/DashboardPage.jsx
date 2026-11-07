@@ -5,7 +5,7 @@ import FixtureCard from '../components/FixtureCard.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
 import StandingsTable from '../components/StandingsTable.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { confirmScore, disputeScore, fetchMyFixtures, fetchStandings, submitScore, fetchUserSquad } from '../lib/leagueApi.js';
+import { confirmScore, disputeScore, fetchMyFixtures, fetchStandings, fetchUserSquad } from '../lib/leagueApi.js';
 import { supabase } from '../lib/supabase.js';
 
 function DashboardContent() {
@@ -16,7 +16,11 @@ function DashboardContent() {
   const [userSquad, setUserSquad] = useState(null);
   const [loadingSquad, setLoadingSquad] = useState(true);
   const pendingForMe = useMemo(
-    () => fixtures.filter((fixture) => fixture.away_player_id === user.id && fixture.status === 'pending_confirmation'),
+    () => fixtures.filter((fixture) =>
+      fixture.status === 'pending_confirmation'
+      && (fixture.away_club_id && fixture.assignedClubId
+        ? fixture.away_club_id === fixture.assignedClubId
+        : fixture.away_player_id === user.id)),
     [fixtures, user.id],
   );
 
@@ -84,7 +88,6 @@ function DashboardContent() {
                 key={fixture.id}
                 fixture={fixture}
                 userId={user.id}
-                onSubmitScore={(item, home, away) => withNotice(() => submitScore(item, home, away), 'Score submitted for away confirmation.')}
                 onConfirmScore={(id) => withNotice(() => confirmScore(id), 'Score confirmed and standings recalculated.')}
                 onDisputeScore={(id, reason) => withNotice(() => disputeScore(id, reason), 'Match disputed. Admin has been alerted in the dispute desk.')}
               />

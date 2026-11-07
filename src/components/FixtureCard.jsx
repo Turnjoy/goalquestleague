@@ -1,12 +1,10 @@
-import { AlertTriangle, Check, Send, ShieldAlert, MessageCircle, X, Trophy, User } from 'lucide-react';
+import { AlertTriangle, Check, ShieldAlert, MessageCircle, X, Trophy, User } from 'lucide-react';
 import { useState } from 'react';
 import Badge from './Badge.jsx';
 import { supabase } from '../lib/supabase.js';
 import { whatsappChatUrl } from '../lib/whatsappPhone.js';
 
-export default function FixtureCard({ fixture, userId, onSubmitScore, onConfirmScore, onDisputeScore }) {
-  const [homeScore, setHomeScore] = useState(fixture.home_score ?? '');
-  const [awayScore, setAwayScore] = useState(fixture.away_score ?? '');
+export default function FixtureCard({ fixture, userId, onConfirmScore, onDisputeScore }) {
   const [disputeReason, setDisputeReason] = useState('');
   const [showSquad, setShowSquad] = useState(false);
   const [opponentSquad, setOpponentSquad] = useState(null);
@@ -17,9 +15,12 @@ export default function FixtureCard({ fixture, userId, onSubmitScore, onConfirmS
   const [reportDescription, setReportDescription] = useState('');
   const [submittingReport, setSubmittingReport] = useState(false);
 
-  const isHome = fixture.home_player_id === userId;
-  const isAway = fixture.away_player_id === userId;
-  const canSubmit = false; // Disabled - only admin can submit scores
+  const isHome = fixture.home_club_id && fixture.assignedClubId
+    ? fixture.home_club_id === fixture.assignedClubId
+    : fixture.home_player_id === userId;
+  const isAway = fixture.away_club_id && fixture.assignedClubId
+    ? fixture.away_club_id === fixture.assignedClubId
+    : fixture.away_player_id === userId;
   const canRespond = isAway && fixture.status === 'pending_confirmation';
 
   const opponentId = isHome ? fixture.away_player_id : fixture.home_player_id;
@@ -106,54 +107,13 @@ export default function FixtureCard({ fixture, userId, onSubmitScore, onConfirmS
         <Badge tone={fixture.status}>{fixture.status}</Badge>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-          Home Score
-          <input
-            type="number"
-            min="0"
-            value={homeScore}
-            onChange={(event) => setHomeScore(event.target.value)}
-            disabled={!canSubmit}
-            className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-3 py-2 text-base font-bold disabled:bg-slate-100 dark:disabled:bg-slate-800 focus:ring-2 focus:ring-indigo-500"
-          />
-        </label>
-        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-          Away Score
-          <input
-            type="number"
-            min="0"
-            value={awayScore}
-            onChange={(event) => setAwayScore(event.target.value)}
-            disabled={!canSubmit}
-            className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-3 py-2 text-base font-bold disabled:bg-slate-100 dark:disabled:bg-slate-800 focus:ring-2 focus:ring-indigo-500"
-          />
-        </label>
-      </div>
-
-      {fixture.status === 'pending_confirmation' && (
+      {(fixture.status === 'pending_confirmation' || fixture.status === 'completed') && (
         <div className="mt-4 rounded-xl border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 px-3 py-2 text-sm font-semibold text-blue-900 dark:text-blue-400">
-          Submitted score: {fixture.home_score} - {fixture.away_score}
+          {fixture.status === 'completed' ? 'Final score' : 'Submitted score'}: {fixture.home_score} - {fixture.away_score}
         </div>
       )}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {canSubmit && (
-          <button
-            type="button"
-            onClick={() => onSubmitScore(fixture, homeScore, awayScore)}
-            className="inline-flex items-center gap-2 rounded-xl bg-ink dark:bg-slate-800 px-4 py-2 text-sm font-bold text-white hover:bg-navy dark:hover:bg-slate-700 transition-colors"
-          >
-            <Send className="h-4 w-4" />
-            Submit Score
-          </button>
-        )}
-        {canSubmit && (
-          <span className="text-xs text-slate-500 dark:text-slate-400 italic">
-            (Admin only - players cannot submit scores)
-          </span>
-        )}
-
         {canRespond && (
           <>
             <button
