@@ -6,7 +6,7 @@ import { confirmScore, disputeScore, fetchMyFixtures } from '../lib/leagueApi.js
 import { supabase } from '../lib/supabase.js';
 
 function FixturesContent() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [fixtures, setFixtures] = useState([]);
   const [message, setMessage] = useState('');
 

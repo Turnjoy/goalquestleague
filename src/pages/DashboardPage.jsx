@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, ChevronUp } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import Badge from '../components/Badge.jsx';
 import FixtureCard from '../components/FixtureCard.jsx';
@@ -18,8 +18,9 @@ function DashboardContent() {
   const [notice, setNotice] = useState('');
   const [userSquad, setUserSquad] = useState(null);
   const [loadingSquad, setLoadingSquad] = useState(true);
-  const [showAllFixtures, setShowAllFixtures] = useState(false);
-  const visibleFixtures = showAllFixtures ? fixtures : fixtures.slice(0, 4);
+  const activeFixtures = fixtures
+    .filter((fixture) => !['completed', 'cancelled'].includes(fixture.status))
+    .slice(0, 5);
   const pendingForMe = useMemo(
     () => fixtures.filter((fixture) =>
       fixture.status === 'pending_confirmation'
@@ -108,7 +109,7 @@ function DashboardContent() {
           {dashboardDataError && <div role="alert" className="mt-4 rounded border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-sm font-semibold text-amber-900 dark:text-amber-200">{dashboardDataError}</div>}
           {fixtureError && <div role="alert" className="mt-4 rounded border border-rose-200 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 px-3 py-2 text-sm font-semibold text-rose-900 dark:text-rose-200">{fixtureError}</div>}
           <div className="mt-4 grid gap-4">
-            {visibleFixtures.map((fixture) => (
+            {activeFixtures.map((fixture) => (
               <FixtureCard
                 key={fixture.id}
                 fixture={fixture}
@@ -118,28 +119,8 @@ function DashboardContent() {
               />
             ))}
             {loadingFixtures && <p className="py-8 text-center text-slate-500 dark:text-slate-400">Loading fixtures…</p>}
-            {!loadingFixtures && !fixtureError && fixtures.length === 0 && <p className="py-8 text-center text-slate-500 dark:text-slate-400">No active fixtures yet.</p>}
+            {!loadingFixtures && !fixtureError && activeFixtures.length === 0 && <p className="py-8 text-center text-slate-500 dark:text-slate-400">No active fixtures yet.</p>}
           </div>
-          {fixtures.length > 4 && (
-            <button
-              type="button"
-              onClick={() => setShowAllFixtures((showing) => !showing)}
-              aria-expanded={showAllFixtures}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-            >
-              {showAllFixtures ? (
-                <>
-                  Show fewer fixtures
-                  <ChevronUp className="h-4 w-4" />
-                </>
-              ) : (
-                <>
-                  Show all {fixtures.length} fixtures
-                  <ChevronDown className="h-4 w-4" />
-                </>
-              )}
-            </button>
-          )}
         </div>
       </section>
       <section>
