@@ -61,6 +61,7 @@ export default function StandingsTable({ division, league }) {
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
             {rows.map((row, index) => {
+              // Position is derived from the ordered rows, not stored in standings.
               const position = index + 1;
               let positionColor = 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white';
 

@@ -90,7 +90,7 @@ create table if not exists public.standings (
   penalty_points int not null default 0,
   points int generated always as ((won * 3) + (draw * 1) - penalty_points) stored,
   form text,
-  unique (division, season, player_id)
+  unique (league_name, division, season, player_id)
 );
 
 create table if not exists public.admin_audit_logs (
@@ -381,7 +381,7 @@ create or replace function public.auto_create_player_standing()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
   if new.is_admin = true then
@@ -409,7 +409,7 @@ begin
       coalesce(new.manager_handle, new.gamertag, new.full_name, 'Player'),
       coalesce(new.custom_team_name, new.squad_name, 'eFootball Team')
     )
-    on conflict (division, season, player_id) do update
+    on conflict (league_name, division, season, player_id) do update
       set player_name = excluded.player_name,
           team_name = excluded.team_name,
           league_name = excluded.league_name,
@@ -487,7 +487,7 @@ create or replace function public.recalculate_standings_for_division(division_in
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
   update public.standings s
@@ -535,7 +535,7 @@ create or replace function public.confirm_fixture_score(fixture_id_input uuid)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   fixture_row public.fixtures%rowtype;
@@ -571,7 +571,7 @@ create or replace function public.admin_resolve_dispute(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   fixture_row public.fixtures%rowtype;
@@ -852,7 +852,7 @@ create or replace function public.admin_lift_ban(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   banned_row public.banned_users%rowtype;
@@ -877,15 +877,19 @@ begin
   where id = player_id_input;
 
   -- Recreate standing entry
-  insert into public.standings (division, season, player_id, player_name, team_name)
-  values (
-    coalesce(new_division_input, banned_row.original_division),
-    extract(year from now())::int,
-    player_id_input,
-    banned_row.player_name,
-    'eFootball Team'
+  insert into public.standings (
+    division, league_name, season, player_id, player_name, team_name
   )
-  on conflict (division, season, player_id) do update
+  select
+    p.division,
+    p.league_name,
+    extract(year from now())::int,
+    p.id,
+    coalesce(p.manager_handle, p.gamertag, p.full_name, 'Player'),
+    coalesce(nullif(p.custom_team_name, ''), nullif(p.squad_name, ''), 'eFootball Team')
+  from public.profiles p
+  where p.id = player_id_input
+  on conflict (league_name, division, season, player_id) do update
     set player_name = excluded.player_name,
         team_name = excluded.team_name;
 
