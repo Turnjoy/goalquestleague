@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Badge from '../components/Badge.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
 import SeasonClubAssignments from '../components/SeasonClubAssignments.jsx';
+import AdminTrophyCabinet from '../components/AdminTrophyCabinet.jsx';
 import {
   deductPlayerPoints,
   fetchDisputedFixtures,
@@ -186,6 +187,7 @@ function AdminContent() {
   const tabs = [
     { id: 'fixtures', label: 'Auto Fixtures', icon: <Zap className="h-4 w-4" /> },
     { id: 'club-assignments', label: 'Club Assignments', icon: <Trophy className="h-4 w-4" /> },
+    { id: 'trophy-cabinet', label: 'Trophy Cabinet', icon: <Sparkles className="h-4 w-4" /> },
     { id: 'fixture-management', label: 'Fixture Management', icon: <Calendar className="h-4 w-4" /> },
     { id: 'season-calendar', label: 'Season Calendar', icon: <CalendarDays className="h-4 w-4" /> },
     { id: 'players', label: 'Player Desk', icon: <Crown className="h-4 w-4" /> },
@@ -511,6 +513,8 @@ function AdminContent() {
           onSeasonYearChange={setClubSeasonYear}
         />
       )}
+
+      {activeTab === 'trophy-cabinet' && <AdminTrophyCabinet />}
 
       {activeTab === 'fixture-management' && (
         <GlassCard>
