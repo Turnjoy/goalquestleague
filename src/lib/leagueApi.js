@@ -35,24 +35,108 @@ export async function fetchMyFixtures(userId) {
   });
 }
 
-export async function fetchStandings(division, league) {
-  let query = supabase
-    .from('standings')
-    .select('*')
-    .order('points', { ascending: false })
-    .order('goal_difference', { ascending: false })
-    .order('goals_for', { ascending: false });
+const STANDINGS_PAGE_SIZE = 1000;
 
-  if (division) query = query.eq('division', division);
-  if (league) query = query.eq('league_name', league);
-  
-  const { data, error } = await query;
-  if (error) throw error;
+function normalizeSeasonYear(value) {
+  const seasonYear = Number(value);
+  return Number.isInteger(seasonYear) && seasonYear >= 2000 && seasonYear <= 2200
+    ? seasonYear
+    : null;
+}
 
-  return (data ?? []).map(row => ({
+function normalizeStandingsFilters(divisionOrFilters, league, seasonYear) {
+  const filters = typeof divisionOrFilters === 'object' && divisionOrFilters !== null
+    ? divisionOrFilters
+    : { division: divisionOrFilters, league, season: seasonYear };
+
+  return {
+    league: filters.league || filters.competition || null,
+    division: filters.division || null,
+    season: normalizeSeasonYear(filters.season ?? filters.seasonYear ?? filters.season_year),
+  };
+}
+
+async function fetchAllPages(buildQuery) {
+  const rows = [];
+  for (let from = 0; ; from += STANDINGS_PAGE_SIZE) {
+    const { data, error } = await buildQuery().range(from, from + STANDINGS_PAGE_SIZE - 1);
+    if (error) throw error;
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < STANDINGS_PAGE_SIZE) return rows;
+  }
+}
+
+function numericValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function compareStandingsRows(left, right) {
+  return numericValue(right.points) - numericValue(left.points)
+    || numericValue(right.goal_difference) - numericValue(left.goal_difference)
+    || numericValue(right.goals_for) - numericValue(left.goals_for)
+    || numericValue(right.played) - numericValue(left.played)
+    || Number(Boolean(right.has_standings)) - Number(Boolean(left.has_standings))
+    || (numericValue(left.club_number) || Number.MAX_SAFE_INTEGER) - (numericValue(right.club_number) || Number.MAX_SAFE_INTEGER)
+    || String(left.club_name ?? '').localeCompare(String(right.club_name ?? ''));
+}
+
+function dedupeStandingsRows(rows) {
+  const rowsByClub = new Map();
+  for (const row of rows) {
+    const key = row.club_id ?? row.id ?? [
+      row.league_name,
+      row.division,
+      row.season,
+      row.club_name ?? row.team_name,
+    ].join('|');
+    const existing = rowsByClub.get(key);
+    if (!existing || compareStandingsRows(row, existing) < 0) rowsByClub.set(key, row);
+  }
+  return [...rowsByClub.values()];
+}
+
+function mapStandingsDirectoryRow(row) {
+  return {
     ...row,
     division_name: row.division,
-  }));
+    club_name: row.club_name ?? row.team_name ?? 'Unassigned',
+    team_name: row.club_name ?? row.team_name ?? 'Unassigned',
+    player_name: row.manager_name || row.player_name || 'Unassigned',
+    played: numericValue(row.played),
+    won: numericValue(row.won),
+    draw: numericValue(row.draw),
+    lost: numericValue(row.lost),
+    goals_for: numericValue(row.goals_for),
+    goals_against: numericValue(row.goals_against),
+    goal_difference: numericValue(row.goal_difference),
+    penalty_points: numericValue(row.penalty_points),
+    points: numericValue(row.points),
+  };
+}
+
+export async function fetchStandings(divisionOrFilters = {}, league, seasonYear) {
+  const filters = normalizeStandingsFilters(divisionOrFilters, league, seasonYear);
+  const params = {};
+  if (filters.league) params.p_league_name = filters.league;
+  if (filters.division) params.p_division = filters.division;
+  if (filters.season) params.p_season = filters.season;
+
+  const rows = await fetchAllPages(() =>
+    supabase.rpc('get_standings_directory', params, { get: true }),
+  );
+
+  return dedupeStandingsRows(rows)
+    .map(mapStandingsDirectoryRow)
+    .sort(compareStandingsRows);
+}
+
+export async function fetchStandingsOptions() {
+  const rows = await fetchAllPages(() =>
+    supabase.rpc('get_standings_filter_options', {}, { get: true }),
+  );
+  return rows;
 }
 
 export async function confirmScore(fixtureId) {

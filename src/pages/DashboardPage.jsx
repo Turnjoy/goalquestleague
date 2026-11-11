@@ -147,7 +147,7 @@ function DashboardContent() {
       <section>
         <h2 className="mb-3 text-xl font-black text-slate-900 dark:text-white">Live standings</h2>
         <div className="overflow-x-auto w-full">
-          <StandingsTable division={profile.division} />
+          <StandingsTable division={profile.division} league={profile.league_name} />
         </div>
       </section>
     </div>

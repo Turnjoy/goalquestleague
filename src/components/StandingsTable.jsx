@@ -3,7 +3,7 @@ import { fetchStandings } from '../lib/leagueApi.js';
 import { supabase } from '../lib/supabase.js';
 import Spinner from './Spinner.jsx';
 
-export default function StandingsTable({ division, league }) {
+export default function StandingsTable({ division, league, season }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -15,7 +15,7 @@ export default function StandingsTable({ division, league }) {
       setLoading(true);
       setLoadError('');
       try {
-        const data = await fetchStandings(division, league);
+        const data = await fetchStandings({ division, league, season });
         if (mounted) setRows(data);
       } catch (error) {
         if (mounted) setLoadError(error instanceof Error ? error.message : 'Unknown error');
@@ -27,15 +27,18 @@ export default function StandingsTable({ division, league }) {
     load();
 
     const channel = supabase
-      .channel(`standings-${division || 'all'}-${league || 'all'}`)
+      .channel(`standings-${league || 'all'}-${division || 'all'}-${season || 'current'}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'standings' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'league_clubs' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'season_club_assignments' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, load)
       .subscribe();
 
     return () => {
       mounted = false;
       supabase.removeChannel(channel);
     };
-  }, [division, league]);
+  }, [division, league, season]);
 
   if (loading) return <Spinner label="Loading live standings" />;
   if (loadError) {
@@ -52,7 +55,7 @@ export default function StandingsTable({ division, league }) {
         <table className="min-w-[800px] w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
           <thead className="bg-slate-900 dark:bg-slate-800 text-white">
             <tr>
-              {['#', 'League', 'Division', 'Club / Manager', 'Team', 'P', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'PP', 'Pts', 'Form'].map((head) => (
+              {['#', 'League', 'Division', 'Club', 'Manager', 'P', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'PP', 'Pts', 'Form'].map((head) => (
                 <th key={head} className="px-3 py-3 text-left font-bold">
                   {head}
                 </th>
@@ -61,36 +64,27 @@ export default function StandingsTable({ division, league }) {
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
             {rows.map((row, index) => {
-              // Position is derived from the ordered rows, not stored in standings.
               const position = index + 1;
-              let positionColor = 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white';
-
-              if (position >= 1 && position <= 10) {
-                positionColor = 'bg-emerald-500 text-white font-black';
-              } else if (position >= 19 && position <= 20) {
-                positionColor = 'bg-rose-500 text-white font-black';
-              }
-
               return (
-                <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                <tr key={row.club_id ?? row.id ?? index} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                   <td className="px-3 py-3">
-                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm ${positionColor}`}>
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full text-sm bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white">
                       {position}
                     </span>
                   </td>
                   <td className="px-3 py-3 font-bold text-slate-900 dark:text-white">{row.league_name || '-'}</td>
-                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.division_name || '-'}</td>
-                  <td className="px-3 py-3 font-bold text-slate-900 dark:text-white">{row.player_name}</td>
-                  <td className="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300">{row.club_id ? '-' : row.team_name || 'Unassigned'}</td>
-                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.played}</td>
-                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.won}</td>
-                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.draw}</td>
-                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.lost}</td>
-                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.goals_for}</td>
-                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.goals_against}</td>
-                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.goal_difference}</td>
-                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.penalty_points}</td>
-                  <td className="px-3 py-3 font-black text-pitch">{row.points}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.division_name || row.division || '-'}</td>
+                  <td className="px-3 py-3 font-bold text-slate-900 dark:text-white">{row.club_name || row.team_name || 'Unassigned'}</td>
+                  <td className="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300">{row.manager_name || row.player_name || 'Unassigned'}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.played ?? 0}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.won ?? 0}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.draw ?? 0}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.lost ?? 0}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.goals_for ?? 0}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.goals_against ?? 0}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.goal_difference ?? 0}</td>
+                  <td className="px-3 py-3 text-slate-700 dark:text-slate-300">{row.penalty_points ?? 0}</td>
+                  <td className="px-3 py-3 font-black text-pitch">{row.points ?? 0}</td>
                   <td className="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300">{row.form || '-'}</td>
                 </tr>
               );
@@ -98,7 +92,7 @@ export default function StandingsTable({ division, league }) {
             {rows.length === 0 && (
               <tr>
                 <td colSpan="15" className="px-3 py-8 text-center text-slate-500 dark:text-slate-400">
-                  No standings yet.
+                  No configured clubs match these standings filters.
                 </td>
               </tr>
             )}
