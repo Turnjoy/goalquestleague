@@ -158,17 +158,6 @@ export async function reassignPlayer(playerId, division) {
   if (error) throw error;
 }
 
-// Reassign a player and optionally inherit another player's fixtures and standings.
-export async function reassignPlayerWithTeam(playerId, division, teamName, inheritFromPlayerId = null) {
-  const { error } = await supabase.rpc('admin_reassign_player_with_team', {
-    player_id_input: playerId,
-    division_input: division,
-    team_name_input: teamName,
-    inherit_from_player_id_input: inheritFromPlayerId,
-  });
-  if (error) throw error;
-}
-
 // Retire player - move to Trial division
 export async function retirePlayer(playerId) {
   const { error } = await supabase
@@ -204,6 +193,32 @@ export async function generateClubFixtures(leagueName, division, startDate, endD
     p_start_date: startDate,
     p_end_date: endDate,
     p_stop_date: stopDate,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchClubTrophies(clubId) {
+  const { data, error } = await supabase.rpc('get_club_trophies', {
+    club_id_input: clubId,
+  }, { get: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchManagerTrophies(managerId) {
+  const { data, error } = await supabase.rpc('get_manager_trophies', {
+    manager_id_input: managerId,
+  }, { get: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function awardClubTrophy(clubId, trophyName, season) {
+  const { data, error } = await supabase.rpc('admin_award_club_trophy', {
+    club_id_input: clubId,
+    trophy_name_input: trophyName,
+    season_input: Number(season),
   });
   if (error) throw error;
   return data;

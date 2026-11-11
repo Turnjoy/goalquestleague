@@ -9,7 +9,6 @@ import {
   fetchPlayers,
   rejectPlayer,
   reassignPlayer,
-  reassignPlayerWithTeam,
   retirePlayer,
   resolveDispute,
   updatePlayerApproval,
@@ -25,7 +24,6 @@ import {
 } from '../lib/leagueApi.js';
 import { CLUB_LEAGUE_DIVISIONS, CLUB_LEAGUE_NAMES, DIVISION_NAMES, LEAGUE_NAMES, LEAGUES, UNASSIGNED_DIVISION } from '../lib/divisions.js';
 import { supabase } from '../lib/supabase.js';
-import { getTeamsForDivision, isValidTeamForDivision } from '../constants/teams.js';
 
 // Custom glowing status badge component
 function GlowingBadge({ status, children }) {
@@ -184,8 +182,6 @@ function AdminContent() {
   const [fixtureSearchTerm, setFixtureSearchTerm] = useState('');
   const [fixtureLeagueFilter, setFixtureLeagueFilter] = useState('');
   const [fixtureDivisionFilter, setFixtureDivisionFilter] = useState('');
-  const [teamTargets, setTeamTargets] = useState({});
-  const [inheritFromTargets, setInheritFromTargets] = useState({});
 
   const tabs = [
     { id: 'fixtures', label: 'Auto Fixtures', icon: <Zap className="h-4 w-4" /> },
@@ -377,35 +373,6 @@ function AdminContent() {
       setMessage(error.message);
     } finally {
       setSubmittingScore(false);
-    }
-  }
-
-  async function handleTeamAssignment(playerId, targetTeam, playerDivision) {
-    // Validate team name against division
-    if (!targetTeam || targetTeam === 'Unassigned') {
-      setMessage('Please select a valid team name.');
-      return;
-    }
-
-    if (!isValidTeamForDivision(targetTeam, playerDivision)) {
-      setMessage(`Team "${targetTeam}" is not valid for division "${playerDivision}". Please select a team from the correct division.`);
-      return;
-    }
-
-    try {
-      const inheritFrom = inheritFromTargets[player.id];
-      await reassignPlayerWithTeam(playerId, playerDivision, targetTeam, inheritFrom || null);
-      
-      const msg = inheritFrom 
-        ? `Team assigned to "${targetTeam}" and fixtures/results inherited from retired player.`
-        : `Team assigned to "${targetTeam}".`;
-      
-      setMessage(msg);
-      await loadPlayers();
-      setTeamTargets(prev => ({ ...prev, [playerId]: null }));
-      setInheritFromTargets(prev => ({ ...prev, [playerId]: null }));
-    } catch (error) {
-      setMessage(error.message || 'Failed to update team. Please try again.');
     }
   }
 
@@ -939,7 +906,7 @@ function AdminContent() {
             <table className="w-full min-w-[1150px]">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700">
-                  {['Player', 'League', 'Division', 'Team', 'Inherit From', 'Approved', 'Status', 'Actions'].map((head) => (
+                  {['Manager', 'League', 'Division', 'Approved', 'Status', 'Actions'].map((head) => (
                     <th key={head} className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">
                       {head}
                     </th>
@@ -952,7 +919,9 @@ function AdminContent() {
                     <td className="px-4 py-4">
                       <p className="font-black text-slate-900 dark:text-white">{player.manager_handle || player.gamertag || player.full_name}</p>
                       <p className="text-xs text-slate-600 dark:text-slate-300">Full name: {player.full_name || 'Not provided'}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Team: {player.team_name || player.custom_team_name || player.squad_name || 'Unassigned'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Club appointment: {player.club_id ? 'Managed through Club Assignments' : 'Unassigned'}
+                      </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">WhatsApp: {player.whatsapp_number || 'Not provided'}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">{player.email}</p>
                     </td>
@@ -966,6 +935,7 @@ function AdminContent() {
                           }))}
                           className="text-xs"
                           aria-label={`Choose a league for ${player.manager_handle || player.gamertag || player.full_name}`}
+                          disabled={Boolean(player.club_id)}
                         >
                           <option value="Unassigned">Unassigned</option>
                           {LEAGUES.map((league) => (
@@ -985,7 +955,7 @@ function AdminContent() {
                               'Player league updated.',
                             );
                           }}
-                          disabled={!leagueTargets[player.id] || leagueTargets[player.id] === player.league_name}
+                          disabled={Boolean(player.club_id) || !leagueTargets[player.id] || leagueTargets[player.id] === player.league_name}
                           className="justify-center whitespace-nowrap px-2 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Reassign league
@@ -1002,6 +972,7 @@ function AdminContent() {
                           }))}
                           className="text-xs"
                           aria-label={`Choose a division for ${player.gamertag || player.full_name}`}
+                          disabled={Boolean(player.club_id)}
                         >
                           {DIVISION_NAMES.map((division) => (
                             <option key={division} value={division}>{division}</option>
@@ -1020,54 +991,10 @@ function AdminContent() {
                               `Player ${changeVerb} to ${targetDivision}.`,
                             );
                           }}
-                          disabled={(divisionTargets[player.id] ?? player.division) === player.division}
+                          disabled={Boolean(player.club_id) || (divisionTargets[player.id] ?? player.division) === player.division}
                           className="justify-center whitespace-nowrap px-2 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {getDivisionChangeLabel(player.division, divisionTargets[player.id] ?? player.division)}
-                        </GradientButton>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex flex-col gap-2">
-                        <StyledSelect
-                          value={teamTargets[player.id] ?? player.team_name ?? 'Unassigned'}
-                          onChange={(event) => setTeamTargets((current) => ({
-                            ...current,
-                            [player.id]: event.target.value,
-                          }))}
-                          className="text-xs"
-                          aria-label={`Choose a team for ${player.gamertag || player.full_name}`}
-                        >
-                          <option value="Unassigned">Unassigned</option>
-                          {getTeamsForDivision(player.division).map((team) => (
-                            <option key={team} value={team}>{team}</option>
-                          ))}
-                        </StyledSelect>
-                        <StyledSelect
-                          value={inheritFromTargets[player.id] ?? ''}
-                          onChange={(event) => setInheritFromTargets((current) => ({
-                            ...current,
-                            [player.id]: event.target.value || null,
-                          }))}
-                          className="text-xs"
-                          aria-label={`Inherit fixtures from retired player`}
-                        >
-                          <option value="">No inheritance</option>
-                          {players.filter(p => p.status === 'retired' && p.division === player.division).map((p) => (
-                            <option key={p.id} value={p.id}>{p.manager_handle || p.gamertag} ({p.team_name || 'Unassigned'})</option>
-                          ))}
-                        </StyledSelect>
-                        <GradientButton
-                          variant="success"
-                          onClick={() => handleTeamAssignment(
-                            player.id,
-                            teamTargets[player.id] ?? player.team_name ?? 'Unassigned',
-                            player.division
-                          )}
-                          disabled={(teamTargets[player.id] ?? player.team_name ?? 'Unassigned') === (player.team_name ?? 'Unassigned')}
-                          className="justify-center whitespace-nowrap px-2 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          Assign team
                         </GradientButton>
                       </div>
                     </td>

@@ -6,33 +6,11 @@ import { Link } from 'react-router-dom';
 import { isSupabaseConfigured, supabase } from '../lib/supabase.js';
 import { normalizeWhatsAppNumber } from '../lib/whatsappPhone.js';
 
-const REAL_WORLD_CLUBS = [
-  'real madrid', 'manchester united', 'barcelona', 'psg', 'arsenal', 'chelsea',
-  'liverpool', 'manchester city', 'bayern munich', 'juventus', 'inter milan',
-  'ac milan', 'dortmund', 'atletico madrid', 'napoli', 'rb leipzig', 'benfica',
-  'porto', 'ajax', 'sevilla', 'roma', 'lazio', 'athletic bilbao', 'real sociedad',
-  'villarreal', 'valencia', 'real betis', 'celtic', 'rangers', 'feyenoord',
-  'psv', 'galatasaray', 'fenerbahce', 'olympiacos', 'panathinaikos', 'red star',
-  'partizan', 'shakhtar', 'dynamo kyiv', 'salzburg', 'basel', 'club brugge',
-  'anderlecht', 'sporting', 'braga', 'wolverhampton', 'leicester', 'west ham',
-  'everton', 'tottenham', 'newcastle', 'aston villa', 'crystal palace', 'brighton',
-  'brentford', 'fulham', 'nottingham forest', 'bournemouth', 'luton', 'burnley',
-  'sheffield united', 'monaco', 'marseille', 'lyon', 'nice', 'lens', 'rennes',
-  'lille', 'strasbourg', 'reims', 'nantes', 'montpellier', 'toulouse', 'wolfsburg',
-  'leverkusen', 'frankfurt', 'monchengladbach', 'union berlin', 'freiburg', 'mainz',
-  'koln', 'hoffenheim', 'werder bremen', 'stuttgart', 'bochum', 'augsburg',
-  'darmstadt', 'heidenheim', 'atalanta', 'fiorentina', 'torino', 'bologna',
-  'udinese', 'sassuolo', 'empoli', 'lecce', 'verona', 'monza', 'cagliari',
-  'genoa', 'frosinone', 'cosenza', 'parma', 'como', 'venezia'
-];
-
 export default function RegisterPage() {
   const [form, setForm] = useState({
     email: '',
     password: '',
-    gamertag: '',
     manager_handle: '',
-    custom_team_name: '',
     full_name: '',
     whatsapp_number: '',
   });
@@ -62,19 +40,6 @@ export default function RegisterPage() {
       errors.manager_handle = 'Manager handle is required';
     } else if (form.manager_handle.trim().length < 3) {
       errors.manager_handle = 'Manager handle must be at least 3 characters';
-    }
-
-    // Validate custom team name and check against blacklist
-    if (!form.custom_team_name.trim()) {
-      errors.custom_team_name = 'Custom team name is required';
-    } else {
-      const lowerTeamName = form.custom_team_name.trim().toLowerCase();
-      const isBlacklisted = REAL_WORLD_CLUBS.some(club =>
-        lowerTeamName.includes(club) || club.includes(lowerTeamName)
-      );
-      if (isBlacklisted) {
-        errors.custom_team_name = 'This team name is not allowed. Please choose a unique custom name.';
-      }
     }
 
     // Validate WhatsApp number
@@ -132,13 +97,9 @@ export default function RegisterPage() {
           data: {
             gamertag: form.manager_handle.trim(),
             efootball_username: form.manager_handle.trim(),
-            squad_name: form.custom_team_name.trim(),
             full_name: form.full_name.trim(),
             whatsapp_number: formattedWhatsApp,
             manager_handle: form.manager_handle.trim(),
-            custom_team_name: form.custom_team_name.trim(),
-            league_name: 'Apex Football League',
-            division: 'Trial',
           },
         },
       });
@@ -169,8 +130,8 @@ export default function RegisterPage() {
         <div className="flex items-center gap-3">
           <img src="/goalquest-logo.webp" alt="GoalQuest League logo" className="h-16 w-24 rounded object-cover" />
           <div>
-            <h1 className="text-2xl font-black text-ink">Player registration</h1>
-            <p className="text-sm font-semibold text-slate-600">GoalQuest League approval queue</p>
+            <h1 className="text-2xl font-black text-ink">Manager registration</h1>
+            <p className="text-sm font-semibold text-slate-600">New managers start unassigned in Trial</p>
           </div>
         </div>
         {message && (
@@ -210,31 +171,6 @@ export default function RegisterPage() {
               placeholder="e.g., TurnjoyBoss"
             />
             {fieldErrors.manager_handle && <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{fieldErrors.manager_handle}</p>}
-          </label>
-
-          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
-            Custom eFootball Team Name
-            <input
-              type="text"
-              required
-              autoComplete="organization"
-              value={form.custom_team_name}
-              onChange={(event) => updateField('custom_team_name', event.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="e.g., Turnjoy FC (NOT Real Madrid)"
-            />
-            {fieldErrors.custom_team_name && <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{fieldErrors.custom_team_name}</p>}
-          </label>
-
-          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
-            League
-            <input
-              type="text"
-              readOnly
-              value="Apex Football League"
-              className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white"
-            />
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">New players join Apex first. An admin can reassign your league later.</p>
           </label>
 
           <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 sm:col-span-2">

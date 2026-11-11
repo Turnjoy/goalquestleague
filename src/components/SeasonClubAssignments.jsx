@@ -151,7 +151,7 @@ export default function SeasonClubAssignments({
         setAssignments(data.assignments);
         setSavedAssignments(data.assignments);
         setPlayers(data.players);
-        setMessage('Season assignments saved. Club names are now updated in the standings.');
+        setMessage('Season managers saved. Club standings, fixtures, and completed results remain with each club.');
       } catch (refreshError) {
         setMessage('Season assignments were saved.');
         setErrorMessage(`Saved, but could not reload the latest assignment data: ${refreshError.message}`);
@@ -171,7 +171,7 @@ export default function SeasonClubAssignments({
       <header>
         <h2 className="text-xl font-black text-slate-900 dark:text-white">Season Club Assignments</h2>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          Clubs stay in their league division. Assign an active player to each club for every season before generating fixtures.
+          Clubs and their records are permanent. Assign an active manager to each club for a season; replacing a manager never transfers or rewrites completed club results.
         </p>
       </header>
 
@@ -241,7 +241,7 @@ export default function SeasonClubAssignments({
                 <tr>
                   <th className="px-3 py-3 font-bold text-slate-700 dark:text-slate-200">#</th>
                   <th className="px-3 py-3 font-bold text-slate-700 dark:text-slate-200">Permanent club</th>
-                  <th className="px-3 py-3 font-bold text-slate-700 dark:text-slate-200">Player for {seasonYear}</th>
+                  <th className="px-3 py-3 font-bold text-slate-700 dark:text-slate-200">Manager for {seasonYear}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">

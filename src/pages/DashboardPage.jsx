@@ -48,7 +48,11 @@ function DashboardContent() {
 
     const dataErrors = [];
     if (standingsResult.status === 'fulfilled') {
-      const myIndex = standingsResult.value.findIndex((row) => row.player_id === user.id);
+      const myIndex = standingsResult.value.findIndex((row) =>
+        profileData.club_id
+          ? row.club_id === profileData.club_id
+          : row.player_id === user.id,
+      );
       const row = standingsResult.value[myIndex] ?? null;
       setStanding(row ? { ...row, rank: myIndex + 1 } : null);
     } else {

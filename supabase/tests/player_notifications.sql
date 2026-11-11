@@ -107,6 +107,9 @@ begin
       is_admin = true,
       status = 'active'
   where id in (admin_id, second_admin_id);
+  update public.profiles
+  set division = division_value
+  where id = any(player_ids) or id = out_of_scope_id or id = inactive_id;
 
   insert into public.league_clubs (league_name, division, club_number, club_name)
   select
