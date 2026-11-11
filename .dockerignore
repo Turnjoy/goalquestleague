@@ -1,0 +1,8 @@
+.git
+.devin
+node_modules
+dist
+.env
+.env.*
+!.env.example
+npm-debug.log*

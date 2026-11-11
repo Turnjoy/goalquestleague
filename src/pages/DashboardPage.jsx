@@ -6,10 +6,11 @@ import ProtectedRoute from '../components/ProtectedRoute.jsx';
 import StandingsTable from '../components/StandingsTable.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { confirmScore, disputeScore, fetchMyFixtures, fetchStandings, fetchUserSquad } from '../lib/leagueApi.js';
+import { clubAssignmentTopic } from '../lib/clubAssignments.js';
 import { supabase } from '../lib/supabase.js';
 
 function DashboardContent() {
-  const { user, profile } = useAuth();
+  const { user, profile, loadProfile } = useAuth();
   const [fixtures, setFixtures] = useState([]);
   const [fixtureError, setFixtureError] = useState('');
   const [loadingFixtures, setLoadingFixtures] = useState(true);
@@ -30,10 +31,10 @@ function DashboardContent() {
     [fixtures, user.id],
   );
 
-  async function load() {
+  async function load(profileData = profile) {
     const [fixtureResult, standingsResult, squadResult] = await Promise.allSettled([
       fetchMyFixtures(user.id),
-      fetchStandings(profile.division, profile.league_name),
+      fetchStandings(profileData.division, profileData.league_name),
       fetchUserSquad(user.id),
     ]);
 
@@ -69,8 +70,24 @@ function DashboardContent() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fixtures' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'standings' }, load)
       .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [user.id, profile.division]);
+    const assignmentChannel = profile?.league_name && profile?.division
+      ? supabase
+        .channel(clubAssignmentTopic(profile.league_name, profile.division), { config: { private: true } })
+        .on('broadcast', { event: 'club_assignments_changed' }, async () => {
+          const refreshedProfile = await loadProfile(user.id);
+          if (!refreshedProfile) {
+            setDashboardDataError('Could not reload your profile after a club assignment change.');
+            return;
+          }
+          await load(refreshedProfile);
+        })
+        .subscribe()
+      : null;
+    return () => {
+      supabase.removeChannel(channel);
+      if (assignmentChannel) supabase.removeChannel(assignmentChannel);
+    };
+  }, [user.id, profile?.division, profile?.league_name, loadProfile]);
 
   async function withNotice(action, success) {
     try {

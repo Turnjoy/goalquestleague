@@ -18,6 +18,7 @@ declare
   first_fixture_id uuid;
   legacy_fixture_id uuid;
   pending_fixture_id uuid;
+  fixture_snapshot jsonb;
   standing_row public.standings%rowtype;
 begin
   if not exists (
@@ -29,6 +30,15 @@ begin
         = 'UNIQUE (league_name, division, season, player_id)'
   ) then
     raise exception 'League-scoped standings unique constraint is missing';
+  end if;
+  if not exists (
+    select 1
+    from pg_catalog.pg_constraint c
+    where c.conrelid = 'public.season_club_assignments'::regclass
+      and c.contype = 'u'
+      and pg_catalog.pg_get_constraintdef(c.oid) = 'UNIQUE (season_year, player_id)'
+  ) then
+    raise exception 'Season assignments must remain limited to one club per player';
   end if;
   if pg_catalog.has_function_privilege(
     'authenticated',
@@ -172,6 +182,17 @@ begin
     (season_value, club_form, form_player_id),
     (season_value, club_empty, replacement_player_id);
 
+  select * into standing_row
+  from public.standings
+  where player_id = replacement_player_id
+    and division = 'Test Tier'
+    and league_name = league_value
+    and season = season_value;
+  if (standing_row.played, standing_row.form, standing_row.team_name)
+     is distinct from (0, '', 'Empty test club') then
+    raise exception 'New assignment did not create an empty club standing';
+  end if;
+
   insert into public.fixtures (
     division, league_name, season_year, matchweek,
     home_player_id, away_player_id, home_team, away_team,
@@ -284,8 +305,8 @@ begin
     and season = season_value;
   if (standing_row.played, standing_row.won, standing_row.draw, standing_row.lost,
       standing_row.goals_for, standing_row.goals_against, standing_row.form,
-      standing_row.penalty_points)
-     is distinct from (0, 0, 0, 0, 0, 0, '', 2) then
+      standing_row.penalty_points, standing_row.team_name)
+     is distinct from (0, 0, 0, 0, 0, 0, '', 2, 'First Test Team') then
     raise exception 'Transferred player stats were not cleared or penalty points changed';
   end if;
   select * into standing_row from public.standings
@@ -370,7 +391,7 @@ begin
   if (standing_row.played, standing_row.won, standing_row.draw, standing_row.lost,
       standing_row.goals_for, standing_row.goals_against, standing_row.form,
       standing_row.penalty_points)
-     is distinct from (3, 2, 1, 0, 6, 2, 'WDW', 7) then
+     is distinct from (3, 2, 1, 0, 6, 3, 'WDW', 7) then
     raise exception 'Admin dispute resolution did not recalculate standings or preserve penalty points';
   end if;
   select * into standing_row from public.standings
@@ -506,6 +527,79 @@ begin
   end if;
   if (standing_row.points, standing_row.goal_difference) is distinct from (11, 2) then
     raise exception 'Generated points and goal difference should follow recalculated totals';
+  end if;
+
+  select pg_catalog.jsonb_agg(pg_catalog.to_jsonb(f) order by f.id)
+  into fixture_snapshot
+  from public.fixtures f
+  where f.league_name = league_value
+    and f.season_year = season_value;
+
+  perform set_config('request.jwt.claim.sub', admin_id::text, true);
+  delete from public.season_club_assignments
+  where season_year = season_value
+    and club_id = club_form;
+
+  select * into standing_row
+  from public.standings
+  where player_id = form_player_id
+    and division = 'Test Tier'
+    and league_name = league_value
+    and season = season_value;
+  if (standing_row.played, standing_row.won, standing_row.draw, standing_row.lost,
+      standing_row.goals_for, standing_row.goals_against, standing_row.form,
+      standing_row.team_name)
+     is distinct from (0, 0, 0, 0, 0, 0, '', 'Form Test Team') then
+    raise exception 'Direct assignment removal did not clear standings and restore the player team';
+  end if;
+
+  perform public.admin_save_season_club_assignments(
+    league_value,
+    'Test Tier',
+    season_value,
+    (
+      select pg_catalog.jsonb_agg(
+        pg_catalog.jsonb_build_object(
+          'club_id', c.id,
+          'player_id',
+          case c.club_number
+            when 2 then second_player_id
+            else null
+          end
+        )
+        order by c.club_number
+      )
+      from public.league_clubs c
+      where c.league_name = league_value and c.division = 'Test Tier'
+    )
+  );
+
+  if exists (
+    select 1
+    from public.season_club_assignments a
+    where a.season_year = season_value
+      and a.club_id in (club_form, club_home)
+  ) then
+    raise exception 'Removed player assignments still exist';
+  end if;
+  select * into standing_row from public.standings
+  where player_id = replacement_player_id
+    and division = 'Test Tier'
+    and league_name = league_value
+    and season = season_value;
+  if (standing_row.played, standing_row.won, standing_row.draw, standing_row.lost,
+      standing_row.goals_for, standing_row.goals_against, standing_row.form,
+      standing_row.team_name)
+     is distinct from (0, 0, 0, 0, 0, 0, '', 'Replacement reassigned team') then
+    raise exception 'RPC assignment removal did not clear standings and restore the player team';
+  end if;
+  if fixture_snapshot is distinct from (
+    select pg_catalog.jsonb_agg(pg_catalog.to_jsonb(f) order by f.id)
+    from public.fixtures f
+    where f.league_name = league_value
+      and f.season_year = season_value
+  ) then
+    raise exception 'Removing an assignment rewrote historical fixtures';
   end if;
 end;
 $$;

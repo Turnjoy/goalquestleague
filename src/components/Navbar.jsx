@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
+import NotificationCenter from './NotificationCenter.jsx';
 import { supabase } from '../lib/supabase.js';
 import { normalizeWhatsAppNumber } from '../lib/whatsappPhone.js';
 
@@ -99,7 +100,7 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-lg dark:shadow-xl">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3">
           <img src="/goalquest-logo.webp" alt="GoalQuest League logo" className="h-12 w-20 rounded-xl object-cover" />
           <div>
             <div className="flex items-center gap-2 text-lg font-black tracking-wide">
@@ -108,6 +109,7 @@ export default function Navbar() {
             </div>
             <p className="text-xs font-semibold uppercase text-amber-600 dark:text-amber-400">Powered by Turnjoy Innovation Services</p>
           </div>
+          {user && <NotificationCenter userId={user.id} />}
         </div>
 
         <nav className="flex flex-wrap items-center justify-between gap-4 w-full lg:w-auto">

@@ -1,9 +1,47 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
-import { CLUB_LEAGUE_DIVISIONS, CLUB_LEAGUE_NAMES, DIVISION_NAMES, LEAGUE_NAMES, UNASSIGNED_DIVISION } from '../lib/divisions.js';
+import { clubAssignmentTopic } from '../lib/clubAssignments.js';
+import { CLUB_LEAGUE_DIVISIONS, CLUB_LEAGUE_NAMES } from '../lib/divisions.js';
 
 function playerLabel(player) {
   return player.manager_handle || player.gamertag || player.full_name || player.email || player.id;
+}
+
+async function fetchAssignmentData(league, division, seasonYear) {
+  const clubResult = await supabase
+    .from('league_clubs')
+    .select('id, club_number, club_name')
+    .eq('league_name', league)
+    .eq('division', division)
+    .order('club_number');
+  if (clubResult.error) throw clubResult.error;
+
+  const clubIds = (clubResult.data || []).map(club => club.id);
+  let assignmentRows = [];
+  if (clubIds.length > 0) {
+    const assignmentResult = await supabase
+      .from('season_club_assignments')
+      .select('club_id, player_id')
+      .eq('season_year', seasonYear)
+      .in('club_id', clubIds);
+    if (assignmentResult.error) throw assignmentResult.error;
+    assignmentRows = assignmentResult.data || [];
+  }
+
+  const playersResult = await supabase
+    .from('profiles')
+    .select('id, manager_handle, gamertag, full_name, email, league_name, division')
+    .eq('is_approved', true)
+    .eq('status', 'active')
+    .eq('is_admin', false)
+    .order('league_name, division, manager_handle');
+  if (playersResult.error) throw playersResult.error;
+
+  return {
+    clubs: clubResult.data || [],
+    assignments: Object.fromEntries(assignmentRows.map(row => [row.club_id, row.player_id])),
+    players: playersResult.data || [],
+  };
 }
 
 export default function SeasonClubAssignments({
@@ -35,36 +73,18 @@ export default function SeasonClubAssignments({
       if (!validSeasonYear) {
         setClubs([]);
         setAssignments({});
+        setSavedAssignments({});
         setErrorMessage('Enter a season year from 2000 to 2200.');
         setLoading(false);
         return;
       }
       try {
-        const clubResult = await supabase
-          .from('league_clubs')
-          .select('id, club_number, club_name')
-          .eq('league_name', league)
-          .eq('division', division)
-          .order('club_number');
-        if (clubResult.error) throw clubResult.error;
-
-        const clubIds = (clubResult.data || []).map(club => club.id);
-        let assignmentRows = [];
-        if (clubIds.length > 0) {
-          const assignmentResult = await supabase
-            .from('season_club_assignments')
-            .select('club_id, player_id')
-            .eq('season_year', parsedSeasonYear)
-            .in('club_id', clubIds);
-          if (assignmentResult.error) throw assignmentResult.error;
-          assignmentRows = assignmentResult.data || [];
-        }
-
+        const data = await fetchAssignmentData(league, division, parsedSeasonYear);
         if (!active) return;
-        setClubs(clubResult.data || []);
-        const loadedAssignments = Object.fromEntries(assignmentRows.map(row => [row.club_id, row.player_id]));
-        setAssignments(loadedAssignments);
-        setSavedAssignments(loadedAssignments);
+        setClubs(data.clubs);
+        setAssignments(data.assignments);
+        setSavedAssignments(data.assignments);
+        setPlayers(data.players);
       } catch (error) {
         if (active) setErrorMessage(error instanceof Error ? error.message : 'Could not load club assignments.');
       } finally {
@@ -73,28 +93,15 @@ export default function SeasonClubAssignments({
     }
 
     load();
-    return () => { active = false; };
+    const channel = supabase
+      .channel(clubAssignmentTopic(league, division), { config: { private: true } })
+      .on('broadcast', { event: 'club_assignments_changed' }, load)
+      .subscribe();
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
   }, [league, division, seasonYear, validSeasonYear, parsedSeasonYear]);
-
-  useEffect(() => {
-    let active = true;
-    supabase
-      .from('profiles')
-      .select('id, manager_handle, gamertag, full_name, email, league_name, division')
-      .eq('is_approved', true)
-      .eq('status', 'active')
-      .eq('is_admin', false)
-      .order('league_name, division, manager_handle')
-      .then(({ data, error }) => {
-        if (!active) return;
-        if (error) {
-          setErrorMessage(error.message);
-        } else {
-          setPlayers(data || []);
-        }
-      });
-    return () => { active = false; };
-  }, []);
 
   function assignPlayer(clubId, playerId) {
     if (!validSeasonYear) {
@@ -138,7 +145,17 @@ export default function SeasonClubAssignments({
       if (error) throw error;
 
       setSavedAssignments({ ...assignments });
-      setMessage('Season assignments saved. Club names are now updated in the standings.');
+      try {
+        const data = await fetchAssignmentData(league, division, parsedSeasonYear);
+        setClubs(data.clubs);
+        setAssignments(data.assignments);
+        setSavedAssignments(data.assignments);
+        setPlayers(data.players);
+        setMessage('Season assignments saved. Club names are now updated in the standings.');
+      } catch (refreshError) {
+        setMessage('Season assignments were saved.');
+        setErrorMessage(`Saved, but could not reload the latest assignment data: ${refreshError.message}`);
+      }
     } catch (error) {
       setErrorMessage(error?.message || 'Could not save season assignments.');
     } finally {

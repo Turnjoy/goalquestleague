@@ -3,6 +3,7 @@ import FixtureCard from '../components/FixtureCard.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { confirmScore, disputeScore, fetchMyFixtures } from '../lib/leagueApi.js';
+import { clubAssignmentTopic } from '../lib/clubAssignments.js';
 import { supabase } from '../lib/supabase.js';
 
 function FixturesContent() {
@@ -21,8 +22,19 @@ function FixturesContent() {
       .channel(`fixtures-${user?.id || 'all'}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fixtures' }, load)
       .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [user?.id]);
+    const assignmentChannel = profile?.league_name && profile?.division
+      ? supabase
+        .channel(clubAssignmentTopic(profile.league_name, profile.division), { config: { private: true } })
+        .on('broadcast', { event: 'club_assignments_changed' }, () => {
+          load().catch(error => setMessage(error.message || 'Could not refresh fixtures after a club assignment change.'));
+        })
+        .subscribe()
+      : null;
+    return () => {
+      supabase.removeChannel(channel);
+      if (assignmentChannel) supabase.removeChannel(assignmentChannel);
+    };
+  }, [user?.id, profile?.league_name, profile?.division]);
 
   async function run(action, success) {
     try {

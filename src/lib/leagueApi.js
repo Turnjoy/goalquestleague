@@ -158,49 +158,15 @@ export async function reassignPlayer(playerId, division) {
   if (error) throw error;
 }
 
-// Reassign player with team name and inherit fixtures/results from old player
+// Reassign a player and optionally inherit another player's fixtures and standings.
 export async function reassignPlayerWithTeam(playerId, division, teamName, inheritFromPlayerId = null) {
-  // First update the player's division and team
-  const { error: updateError } = await supabase
-    .from('profiles')
-    .update({
-      division_name: division,
-      team_name: teamName,
-    })
-    .eq('id', playerId);
-
-  if (updateError) throw updateError;
-
-  // If inheriting from another player, transfer fixtures and standings
-  if (inheritFromPlayerId) {
-    // Transfer fixtures: update home_player_id or away_player_id
-    await supabase
-      .from('fixtures')
-      .update({ home_player_id: playerId })
-      .eq('home_player_id', inheritFromPlayerId);
-
-    await supabase
-      .from('fixtures')
-      .update({ away_player_id: playerId })
-      .eq('away_player_id', inheritFromPlayerId);
-
-    // Transfer standings: update player_id and keep results
-    const { data: oldStandings } = await supabase
-      .from('standings')
-      .select('*')
-      .eq('player_id', inheritFromPlayerId)
-      .single();
-
-    if (oldStandings) {
-      await supabase
-        .from('standings')
-        .update({
-          player_id: playerId,
-          team_name: teamName,
-        })
-        .eq('player_id', inheritFromPlayerId);
-    }
-  }
+  const { error } = await supabase.rpc('admin_reassign_player_with_team', {
+    player_id_input: playerId,
+    division_input: division,
+    team_name_input: teamName,
+    inherit_from_player_id_input: inheritFromPlayerId,
+  });
+  if (error) throw error;
 }
 
 // Retire player - move to Trial division
