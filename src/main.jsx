@@ -15,6 +15,8 @@ import RegisterPage from './pages/RegisterPage.jsx';
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import RulesPage from './pages/RulesPage.jsx';
 import StandingsPage from './pages/StandingsPage.jsx';
+import WorldCupPage from './pages/WorldCupPage.jsx';
+import WorldCupAdminPage from './pages/WorldCupAdminPage.jsx';
 import './styles/index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -27,6 +29,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route index element={<LandingPage />} />
               <Route path="/leaderboard" element={<LeaderboardPage />} />
               <Route path="/rules" element={<RulesPage />} />
+              <Route path="/world-cup" element={<WorldCupPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -37,6 +40,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="/fixtures" element={<FixturesPage />} />
               <Route path="/standings" element={<StandingsPage />} />
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/world-cup" element={<WorldCupAdminPage />} />
             </Route>
           </Routes>
         </AuthProvider>

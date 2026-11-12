@@ -1,4 +1,4 @@
-import { Ban, Calendar, Check, Clock, RotateCcw, Search, ShieldAlert, Trophy, UserX, Zap, Crown, Flame, Skull, Sparkles, CalendarDays } from 'lucide-react';
+import { Ban, Calendar, Check, Clock, RotateCcw, Search, ShieldAlert, Trophy, UserX, Zap, Crown, Flame, Skull, Sparkles, CalendarDays, Globe } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Badge from '../components/Badge.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
@@ -188,6 +188,7 @@ function AdminContent() {
     { id: 'fixtures', label: 'Auto Fixtures', icon: <Zap className="h-4 w-4" /> },
     { id: 'club-assignments', label: 'Club Assignments', icon: <Trophy className="h-4 w-4" /> },
     { id: 'trophy-cabinet', label: 'Trophy Cabinet', icon: <Sparkles className="h-4 w-4" /> },
+    { id: 'world-cup', label: 'World Cup', icon: <Globe className="h-4 w-4" /> },
     { id: 'fixture-management', label: 'Fixture Management', icon: <Calendar className="h-4 w-4" /> },
     { id: 'season-calendar', label: 'Season Calendar', icon: <CalendarDays className="h-4 w-4" /> },
     { id: 'players', label: 'Player Desk', icon: <Crown className="h-4 w-4" /> },
@@ -515,6 +516,35 @@ function AdminContent() {
       )}
 
       {activeTab === 'trophy-cabinet' && <AdminTrophyCabinet />}
+
+      {activeTab === 'world-cup' && (
+        <GlassCard>
+          <div className="mb-6 flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
+              <Globe className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
+                Elite World Cup Administration
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Manage the independent tournament system
+              </p>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <button
+              onClick={() => window.location.href = '/admin/world-cup'}
+              className="w-full px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg"
+            >
+              Open World Cup Admin Panel
+            </button>
+            <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
+              Access the dedicated World Cup management interface for groups, fixtures, and standings.
+            </p>
+          </div>
+        </GlassCard>
+      )}
 
       {activeTab === 'fixture-management' && (
         <GlassCard>
