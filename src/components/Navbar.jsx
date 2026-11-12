@@ -110,7 +110,7 @@ export default function Navbar() {
             </div>
             <p className="text-xs font-semibold uppercase text-amber-600 dark:text-amber-400">Powered by Turnjoy Innovation Services</p>
           </div>
-          {user && <NotificationCenter userId={user.id} />}
+          {user && <NotificationCenter userId={user.id} leagueName={profile?.league_name} division={profile?.division} />}
         </div>
 
         <nav className="flex flex-wrap items-center justify-between gap-4 w-full lg:w-auto">

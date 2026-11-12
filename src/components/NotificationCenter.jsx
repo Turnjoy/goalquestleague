@@ -1,9 +1,11 @@
 import { Bell, Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { clubAssignmentTopic } from '../lib/clubAssignments.js';
 import { fetchMyNotifications, markNotificationRead } from '../lib/notifications.js';
+import { supabase } from '../lib/supabase.js';
 
-export default function NotificationCenter({ userId }) {
+export default function NotificationCenter({ userId, leagueName, division }) {
   const location = useLocation();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -33,8 +35,19 @@ export default function NotificationCenter({ userId }) {
       if (document.visibilityState === 'visible') loadNotifications();
     }
     document.addEventListener('visibilitychange', refreshOnResume);
-    return () => document.removeEventListener('visibilitychange', refreshOnResume);
-  }, [userId, location.key]);
+
+    const assignmentChannel = leagueName && division
+      ? supabase
+        .channel(clubAssignmentTopic(leagueName, division), { config: { private: true } })
+        .on('broadcast', { event: 'club_assignments_changed' }, loadNotifications)
+        .subscribe()
+      : null;
+
+    return () => {
+      document.removeEventListener('visibilitychange', refreshOnResume);
+      if (assignmentChannel) supabase.removeChannel(assignmentChannel);
+    };
+  }, [userId, location.key, leagueName, division]);
 
   async function markAsRead(notification) {
     try {
