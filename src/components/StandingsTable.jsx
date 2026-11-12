@@ -65,10 +65,16 @@ export default function StandingsTable({ division, league, season }) {
           <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
             {rows.map((row, index) => {
               const position = index + 1;
+              const getPositionColor = (pos) => {
+                if (pos >= 1 && pos <= 10) return 'bg-emerald-500 text-white dark:bg-emerald-600';
+                if (pos >= 11 && pos <= 18) return 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white';
+                if (pos >= 19 && pos <= 20) return 'bg-rose-500 text-white dark:bg-rose-600';
+                return 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white';
+              };
               return (
                 <tr key={row.club_id ?? row.id ?? index} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                   <td className="px-3 py-3">
-                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full text-sm bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white">
+                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm ${getPositionColor(position)}`}>
                       {position}
                     </span>
                   </td>
