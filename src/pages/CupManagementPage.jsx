@@ -23,6 +23,7 @@ import {
   getCupCompetition,
   createCupConfiguration,
   getCupConfiguration,
+  getCupConfigurations,
   getQualifiedClubsForCup,
   autoQualifyClubsForCup,
   getCupParticipants,
@@ -44,7 +45,23 @@ const SYSTEM_COMPETITIONS = [
   { name: 'diamond_elite_cup', display: 'Diamond Elite Cup', description: 'Top 16 from Diamond Elite League' }
 ];
 
-export default function CupManagementPage() {
+function getStatusBadge(status) {
+  const styles = {
+    unconfigured: 'bg-slate-100 text-slate-800 border-slate-300',
+    draft_preview: 'bg-amber-100 text-amber-800 border-amber-300',
+    active: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    completed: 'bg-blue-100 text-blue-800 border-blue-300',
+    cancelled: 'bg-rose-100 text-rose-800 border-rose-300'
+  };
+  const label = typeof status === 'string' ? status : 'unconfigured';
+  return (
+    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${styles[label] || styles.unconfigured}`}>
+      {label.replace('_', ' ').toUpperCase()}
+    </span>
+  );
+}
+
+function CupManagementContent() {
   const navigate = useNavigate();
   const [competitions, setCompetitions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +70,7 @@ export default function CupManagementPage() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [draftPreview, setDraftPreview] = useState(null);
   const [currentConfig, setCurrentConfig] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     loadCompetitions();
@@ -60,12 +78,13 @@ export default function CupManagementPage() {
 
   async function loadCompetitions() {
     setLoading(true);
+    setError('');
     try {
       await seedSystemCupCompetitions();
       const competitionsData = await getAllCupCompetitions();
       setCompetitions(competitionsData);
     } catch (err) {
-      console.error('Failed to load competitions:', err);
+      setError(err?.message || 'Could not load cup competitions.');
     } finally {
       setLoading(false);
     }
@@ -79,9 +98,8 @@ export default function CupManagementPage() {
   async function handleViewPreview(competition) {
     try {
       const currentYear = new Date().getFullYear();
-      const configs = await competition.id ? 
-        (await import('../lib/cupApi.js')).getCupConfigurations(competition.id, currentYear) : [];
-      
+      const configs = await getCupConfigurations(competition.id, currentYear);
+
       if (configs.length > 0) {
         const preview = await generateDraftPreview(configs[0].id);
         setDraftPreview(preview);
@@ -93,21 +111,6 @@ export default function CupManagementPage() {
     } catch (err) {
       alert(`Failed to load preview: ${err.message}`);
     }
-  }
-
-  function getStatusBadge(status) {
-    const styles = {
-      unconfigured: 'bg-slate-100 text-slate-800 border-slate-300',
-      draft_preview: 'bg-amber-100 text-amber-800 border-amber-300',
-      active: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-      completed: 'bg-blue-100 text-blue-800 border-blue-300',
-      cancelled: 'bg-rose-100 text-rose-800 border-rose-300'
-    };
-    return (
-      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${styles[status] || styles.unconfigured}`}>
-        {status.replace('_', ' ').toUpperCase()}
-      </span>
-    );
   }
 
   if (loading) {
@@ -122,8 +125,7 @@ export default function CupManagementPage() {
   }
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
         {/* Header */}
         <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -159,6 +161,34 @@ export default function CupManagementPage() {
               Pre-seeded competitions with automatic qualification criteria
             </p>
           </div>
+
+          {error && (
+            <div className="mb-6 rounded-lg border border-rose-300 bg-rose-50 dark:bg-rose-900/20 dark:border-rose-800 px-4 py-3 flex items-center justify-between gap-4">
+              <p className="text-sm text-rose-700 dark:text-rose-300">{error}</p>
+              <button
+                onClick={loadCompetitions}
+                className="shrink-0 px-3 py-1.5 text-sm font-medium text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-700 rounded-md hover:bg-rose-100 dark:hover:bg-rose-900/40"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {!error && competitions.length === 0 && (
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-10 text-center">
+              <Trophy className="h-10 w-10 text-slate-400 mx-auto mb-3" />
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">No cup competitions found</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                The seven system competitions have not been seeded yet. Apply the cup schema migration, then retry.
+              </p>
+              <button
+                onClick={loadCompetitions}
+                className="mt-4 px-4 py-2 text-sm font-medium text-indigo-600 border border-indigo-300 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+              >
+                Retry
+              </button>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {competitions.map(competition => (
@@ -204,8 +234,11 @@ export default function CupManagementPage() {
           />
         )}
       </div>
-    </ProtectedRoute>
   );
+}
+
+export default function CupManagementPage() {
+  return <ProtectedRoute adminOnly><CupManagementContent /></ProtectedRoute>;
 }
 
 function CompetitionCard({ competition, onSetup, onPreview }) {

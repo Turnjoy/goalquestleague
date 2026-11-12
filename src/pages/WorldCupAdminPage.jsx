@@ -53,7 +53,7 @@ const TABS = [
 
 const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
-export default function WorldCupAdminPage() {
+function WorldCupAdminContent() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [tournament, setTournament] = useState(null);
@@ -99,8 +99,7 @@ export default function WorldCupAdminPage() {
   }
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
         {/* Header */}
         <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -257,9 +256,12 @@ export default function WorldCupAdminPage() {
             </>
           )}
         </div>
-      </div>
-    </ProtectedRoute>
+    </div>
   );
+}
+
+export default function WorldCupAdminPage() {
+  return <ProtectedRoute adminOnly><WorldCupAdminContent /></ProtectedRoute>;
 }
 
 // Overview Tab Component
@@ -466,7 +468,8 @@ function GroupsTab({ tournament, onRefresh }) {
         {GROUPS.map(group => {
           const groupCountries = groupAssignments
             .filter(ga => ga.group_letter === group)
-            .map(ga => ga.countries);
+            .map(ga => ga.countries)
+            .filter(Boolean);
           
           return (
             <div key={group} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">

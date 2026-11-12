@@ -18,6 +18,7 @@ import StandingsPage from './pages/StandingsPage.jsx';
 import WorldCupPage from './pages/WorldCupPage.jsx';
 import WorldCupAdminPage from './pages/WorldCupAdminPage.jsx';
 import CupManagementPage from './pages/CupManagementPage.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import './styles/index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -25,6 +26,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
+          <ErrorBoundary>
           <Routes>
             <Route element={<App />}>
               <Route index element={<LandingPage />} />
@@ -45,6 +47,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="/admin/cup-management" element={<CupManagementPage />} />
             </Route>
           </Routes>
+          </ErrorBoundary>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

@@ -14,7 +14,7 @@ export async function getTournament() {
     .select('*')
     .eq('name', 'Elite World Cup')
     .eq('edition', '2031/2032')
-    .single();
+    .maybeSingle();
   if (error) throw error;
   return data;
 }
@@ -64,7 +64,7 @@ export async function getGroupAssignments(tournamentId) {
     .from('world_cup_groups')
     .select(`
       *,
-      countries (*)
+      countries:world_cup_countries!country_id (*)
     `)
     .eq('tournament_id', tournamentId)
     .order('group_letter');
@@ -77,7 +77,7 @@ export async function getCountriesByGroup(tournamentId, groupLetter) {
     .from('world_cup_groups')
     .select(`
       *,
-      countries (*)
+      countries:world_cup_countries!country_id (*)
     `)
     .eq('tournament_id', tournamentId)
     .eq('group_letter', groupLetter);
@@ -97,7 +97,7 @@ export async function getAvailableManagers() {
       gamertag,
       manager_handle,
       full_name,
-      season_club_assignments (
+      season_club_assignments:season_club_assignments!player_id (
         club_id,
         season_year,
         league_clubs (
@@ -135,7 +135,7 @@ export async function getCountryManager(tournamentId, countryId) {
     .from('world_cup_manager_appointments')
     .select(`
       *,
-      profiles (
+      profiles:profiles!manager_id (
         id,
         gamertag,
         manager_handle,
@@ -155,13 +155,13 @@ export async function getCountryManagerHistory(tournamentId, countryId) {
     .from('world_cup_manager_appointments')
     .select(`
       *,
-      profiles (
+      profiles:profiles!manager_id (
         id,
         gamertag,
         manager_handle,
         full_name
       ),
-      admin_profiles:appointed_by (
+      admin_profiles:profiles!appointed_by (
         gamertag,
         manager_handle,
         full_name
@@ -179,8 +179,8 @@ export async function getAllManagerAppointments(tournamentId) {
     .from('world_cup_manager_appointments')
     .select(`
       *,
-      countries (*),
-      profiles (
+      countries:world_cup_countries!country_id (*),
+      profiles:profiles!manager_id (
         id,
         gamertag,
         manager_handle,
@@ -208,8 +208,8 @@ export async function getFixtures(tournamentId, filters = {}) {
     .from('world_cup_fixtures')
     .select(`
       *,
-      home_country:home_country_id (*),
-      away_country:away_country_id (*)
+      home_country:world_cup_countries!home_country_id (*),
+      away_country:world_cup_countries!away_country_id (*)
     `)
     .eq('tournament_id', tournamentId);
 
@@ -236,8 +236,8 @@ export async function getFixtureById(fixtureId) {
     .from('world_cup_fixtures')
     .select(`
       *,
-      home_country:home_country_id (*),
-      away_country:away_country_id (*)
+      home_country:world_cup_countries!home_country_id (*),
+      away_country:world_cup_countries!away_country_id (*)
     `)
     .eq('id', fixtureId)
     .single();
@@ -277,7 +277,7 @@ export async function getGroupStandings(tournamentId, groupLetter = null) {
     .from('world_cup_standings')
     .select(`
       *,
-      countries (*)
+      countries:world_cup_countries!country_id (*)
     `)
     .eq('tournament_id', tournamentId);
 
@@ -303,7 +303,7 @@ export async function getAllGroupStandings(tournamentId) {
     .from('world_cup_standings')
     .select(`
       *,
-      countries (*)
+      countries:world_cup_countries!country_id (*)
     `)
     .eq('tournament_id', tournamentId)
     .order('group_letter')
@@ -319,7 +319,7 @@ export async function getKnockoutProgression(tournamentId) {
     .from('world_cup_knockout_progression')
     .select(`
       *,
-      countries (*)
+      countries:world_cup_countries!country_id (*)
     `)
     .eq('tournament_id', tournamentId)
     .order('round')

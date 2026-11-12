@@ -1,5 +1,6 @@
 import { Ban, Calendar, Check, Clock, RotateCcw, Search, ShieldAlert, Trophy, UserX, Zap, Crown, Flame, Skull, Sparkles, CalendarDays, Globe, Award } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Badge from '../components/Badge.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
 import SeasonClubAssignments from '../components/SeasonClubAssignments.jsx';
@@ -150,6 +151,7 @@ function TabNav({ activeTab, setActiveTab, tabs }) {
 }
 
 function AdminContent() {
+  const navigate = useNavigate();
   const [disputes, setDisputes] = useState([]);
   const [players, setPlayers] = useState([]);
   const [bannedUsers, setBannedUsers] = useState([]);
@@ -535,7 +537,7 @@ function AdminContent() {
           </div>
           <div className="space-y-4">
             <button
-              onClick={() => window.location.href = '/admin/cup-management'}
+              onClick={() => navigate('/admin/cup-management')}
               className="w-full px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold rounded-xl hover:from-amber-700 hover:to-orange-700 transition-all duration-200 shadow-lg"
             >
               Open Cup Management Panel
@@ -564,7 +566,7 @@ function AdminContent() {
           </div>
           <div className="space-y-4">
             <button
-              onClick={() => window.location.href = '/admin/world-cup'}
+              onClick={() => navigate('/admin/world-cup')}
               className="w-full px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg"
             >
               Open World Cup Admin Panel

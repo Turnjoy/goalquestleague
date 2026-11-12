@@ -19,6 +19,7 @@ export default function WorldCupPage() {
   const [fixtures, setFixtures] = useState([]);
   const [standings, setStandings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export default function WorldCupPage() {
 
   async function loadTournamentData() {
     setLoading(true);
+    setError('');
     try {
       const tournamentData = await getTournament();
       if (!tournamentData) {
@@ -50,7 +52,7 @@ export default function WorldCupPage() {
       setFixtures(fixturesData);
       setStandings(standingsData);
     } catch (err) {
-      console.error('Failed to load tournament data:', err);
+      setError(err?.message || 'Failed to load tournament data.');
     } finally {
       setLoading(false);
     }
@@ -68,6 +70,25 @@ export default function WorldCupPage() {
   }
 
   if (!tournament) {
+    if (error) {
+      return (
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center px-4">
+          <div className="text-center max-w-md rounded-xl border border-rose-200 dark:border-rose-800 bg-white dark:bg-slate-800 p-6">
+            <Globe className="h-14 w-14 text-rose-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+              Elite World Cup 2031/2032
+            </h2>
+            <p className="text-sm text-rose-600 dark:text-rose-400 mb-4">{error}</p>
+            <button
+              onClick={loadTournamentData}
+              className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
         <div className="text-center max-w-md">
@@ -151,6 +172,17 @@ export default function WorldCupPage() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="mb-6 rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20 px-4 py-3 flex items-center justify-between gap-4">
+            <p className="text-sm text-rose-700 dark:text-rose-300">{error}</p>
+            <button
+              onClick={loadTournamentData}
+              className="shrink-0 px-3 py-1.5 text-sm font-medium text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-700 rounded-md hover:bg-rose-100 dark:hover:bg-rose-900/40"
+            >
+              Retry
+            </button>
+          </div>
+        )}
         {activeTab === 'overview' && (
           <OverviewContent 
             tournament={tournament} 
@@ -240,6 +272,7 @@ function GroupsContent({ groupAssignments }) {
     countries: groupAssignments
       .filter(ga => ga.group_letter === group)
       .map(ga => ga.countries)
+      .filter(Boolean)
   })).filter(g => g.countries.length > 0);
 
   return (

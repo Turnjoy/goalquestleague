@@ -144,15 +144,17 @@ export async function getCupFixtures(configId, filters = {}) {
     .from('cup_fixtures')
     .select(`
       *,
-      home_club:home_club_id (
+      home_club:league_clubs!home_club_id (
         club_name,
-        short_name,
-        league_name
+        league_name,
+        division,
+        club_number
       ),
-      away_club:away_club_id (
+      away_club:league_clubs!away_club_id (
         club_name,
-        short_name,
-        league_name
+        league_name,
+        division,
+        club_number
       )
     `)
     .eq('cup_config_id', configId);
@@ -328,11 +330,10 @@ export async function updateCupStatus(cupId, status) {
 // Utility Functions
 
 export async function getCupSummary(cupId, seasonYear) {
-  const [cup, config, participants, fixtures] = await Promise.all([
-    getCupCompetition(cupId),
+  const cup = await getCupCompetition(cupId);
+  const [config, participants] = await Promise.all([
     getCupConfigurations(cupId, seasonYear),
-    getQualifiedClubsForCup(cupId, seasonYear),
-    null // Fixtures will be loaded when config exists
+    getQualifiedClubsForCup(cup.name, seasonYear)
   ]);
 
   return {
