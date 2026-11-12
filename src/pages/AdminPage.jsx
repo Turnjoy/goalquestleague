@@ -1,4 +1,4 @@
-import { Ban, Calendar, Check, Clock, RotateCcw, Search, ShieldAlert, Trophy, UserX, Zap, Crown, Flame, Skull, Sparkles, CalendarDays, Globe } from 'lucide-react';
+import { Ban, Calendar, Check, Clock, RotateCcw, Search, ShieldAlert, Trophy, UserX, Zap, Crown, Flame, Skull, Sparkles, CalendarDays, Globe, Award } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Badge from '../components/Badge.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
@@ -188,6 +188,7 @@ function AdminContent() {
     { id: 'fixtures', label: 'Auto Fixtures', icon: <Zap className="h-4 w-4" /> },
     { id: 'club-assignments', label: 'Club Assignments', icon: <Trophy className="h-4 w-4" /> },
     { id: 'trophy-cabinet', label: 'Trophy Cabinet', icon: <Sparkles className="h-4 w-4" /> },
+    { id: 'cup-management', label: 'Cup Management', icon: <Award className="h-4 w-4" /> },
     { id: 'world-cup', label: 'World Cup', icon: <Globe className="h-4 w-4" /> },
     { id: 'fixture-management', label: 'Fixture Management', icon: <Calendar className="h-4 w-4" /> },
     { id: 'season-calendar', label: 'Season Calendar', icon: <CalendarDays className="h-4 w-4" /> },
@@ -516,6 +517,35 @@ function AdminContent() {
       )}
 
       {activeTab === 'trophy-cabinet' && <AdminTrophyCabinet />}
+
+      {activeTab === 'cup-management' && (
+        <GlassCard>
+          <div className="mb-6 flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl">
+              <Award className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-black bg-gradient-to-r from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400 bg-clip-text text-transparent">
+                Cup & Tournament Management
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Automated setup for 7 pre-seeded competitions
+              </p>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <button
+              onClick={() => window.location.href = '/admin/cup-management'}
+              className="w-full px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold rounded-xl hover:from-amber-700 hover:to-orange-700 transition-all duration-200 shadow-lg"
+            >
+              Open Cup Management Panel
+            </button>
+            <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
+              Access the dedicated cup management interface for Quest Champions League, Quest Europa League, and other competitions.
+            </p>
+          </div>
+        </GlassCard>
+      )}
 
       {activeTab === 'world-cup' && (
         <GlassCard>

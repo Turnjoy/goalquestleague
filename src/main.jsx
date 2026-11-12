@@ -17,6 +17,7 @@ import RulesPage from './pages/RulesPage.jsx';
 import StandingsPage from './pages/StandingsPage.jsx';
 import WorldCupPage from './pages/WorldCupPage.jsx';
 import WorldCupAdminPage from './pages/WorldCupAdminPage.jsx';
+import CupManagementPage from './pages/CupManagementPage.jsx';
 import './styles/index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -41,6 +42,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="/standings" element={<StandingsPage />} />
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/world-cup" element={<WorldCupAdminPage />} />
+              <Route path="/admin/cup-management" element={<CupManagementPage />} />
             </Route>
           </Routes>
         </AuthProvider>
