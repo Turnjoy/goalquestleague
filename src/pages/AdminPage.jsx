@@ -23,6 +23,8 @@ import {
   updatePlayerLeague,
   generateClubFixtures,
   adminSubmitScore,
+  getInternationalBreak,
+  syncInternationalBreak,
 } from '../lib/leagueApi.js';
 import { CLUB_LEAGUE_DIVISIONS, CLUB_LEAGUE_NAMES, DIVISION_NAMES, LEAGUE_NAMES, LEAGUES, UNASSIGNED_DIVISION } from '../lib/divisions.js';
 import { supabase } from '../lib/supabase.js';
@@ -185,6 +187,9 @@ function AdminContent() {
   const [fixtureSearchTerm, setFixtureSearchTerm] = useState('');
   const [fixtureLeagueFilter, setFixtureLeagueFilter] = useState('');
   const [fixtureDivisionFilter, setFixtureDivisionFilter] = useState('');
+  const [internationalBreakActive, setInternationalBreakActive] = useState(false);
+  const [internationalBreakSyncing, setInternationalBreakSyncing] = useState(false);
+  const [internationalBreakStatus, setInternationalBreakStatus] = useState('');
 
   const tabs = [
     { id: 'fixtures', label: 'Auto Fixtures', icon: <Zap className="h-4 w-4" /> },
@@ -267,6 +272,12 @@ function AdminContent() {
     loadAllFixtures();
   }, [fixtureDivisionFilter, fixtureLeagueFilter]);
 
+  useEffect(() => {
+    refreshInternationalBreak();
+    const interval = window.setInterval(refreshInternationalBreak, 6 * 60 * 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, [selectedFixtureLeague, selectedDivision, clubSeasonYear]);
+
   function setEdit(id, field, value) {
     setEdits((current) => ({ ...current, [id]: { ...current[id], [field]: value } }));
   }
@@ -286,6 +297,59 @@ function AdminContent() {
       await Promise.all([loadDisputes(), loadPlayers(), loadBannedUsers(), loadAllFixtures()]);
     } catch (error) {
       setMessage(error.message);
+    }
+  }
+
+  async function refreshInternationalBreak() {
+    try {
+      const breakRow = await getInternationalBreak(
+        selectedFixtureLeague,
+        selectedDivision,
+        Number(clubSeasonYear),
+      );
+      setInternationalBreakActive(Boolean(breakRow?.is_active));
+      setInternationalBreakStatus(
+        breakRow?.is_active
+          ? `International break active - ${breakRow.shifted_days || 0} day(s) shifted`
+          : 'International break inactive',
+      );
+      if (breakRow?.is_active) {
+        const result = await syncInternationalBreak(
+          selectedFixtureLeague,
+          selectedDivision,
+          Number(clubSeasonYear),
+          true,
+        );
+        setInternationalBreakStatus(
+          `International break active - ${result.shifted_days || 0} day(s) shifted`,
+        );
+        await loadAllFixtures();
+      }
+    } catch (error) {
+      setInternationalBreakStatus(error.message || 'Could not load international break.');
+    }
+  }
+
+  async function handleInternationalBreakToggle(active) {
+    setInternationalBreakSyncing(true);
+    try {
+      const result = await syncInternationalBreak(
+        selectedFixtureLeague,
+        selectedDivision,
+        Number(clubSeasonYear),
+        active,
+      );
+      setInternationalBreakActive(active);
+      setInternationalBreakStatus(
+        active
+          ? `International break active - ${result.shifted_days || 0} day(s) shifted`
+          : 'International break stopped',
+      );
+      await loadAllFixtures();
+    } catch (error) {
+      setInternationalBreakStatus(error.message || 'Could not update international break.');
+    } finally {
+      setInternationalBreakSyncing(false);
     }
   }
 
@@ -492,6 +556,28 @@ function AdminContent() {
                 onChange={(event) => setFixtureStopDate(event.target.value)}
               />
             </div>
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2">
+              <label className="text-sm font-bold text-slate-700 dark:text-slate-300" htmlFor="international-break-toggle">
+                International Break
+              </label>
+              <button
+                id="international-break-toggle"
+                type="button"
+                role="switch"
+                aria-checked={internationalBreakActive}
+                disabled={internationalBreakSyncing}
+                onClick={() => handleInternationalBreakToggle(!internationalBreakActive)}
+                className={`relative h-6 w-11 rounded-full transition-colors ${
+                  internationalBreakActive ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-600'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${
+                    internationalBreakActive ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
             <GradientButton
               variant="primary"
               onClick={handleGenerateFixtures}
@@ -504,6 +590,11 @@ function AdminContent() {
           <p className="mt-3 text-xs text-slate-600 dark:text-slate-400">
             Matchweeks are generated for the assigned clubs. Assign all 20 clubs for the selected league, division, and season first.
           </p>
+          {internationalBreakStatus && (
+            <p className={`mt-2 text-xs font-bold ${internationalBreakActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>
+              {internationalBreakStatus}
+            </p>
+          )}
         </GlassCard>
       )}
 

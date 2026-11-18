@@ -59,6 +59,14 @@ export async function assignCountryToGroup(tournamentId, countryId, groupLetter)
   if (error) throw error;
 }
 
+export async function autoAssignWorldCupGroups(tournamentId) {
+  const { data, error } = await supabase.rpc('auto_assign_world_cup_groups', {
+    tournament_id_input: tournamentId
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function getGroupAssignments(tournamentId) {
   const { data, error } = await supabase
     .from('world_cup_groups')

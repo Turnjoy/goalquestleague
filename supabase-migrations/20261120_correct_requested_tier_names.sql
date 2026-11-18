@@ -1,4 +1,6 @@
 begin;
+select set_config('app.club_move_rpc','on',true);
+select set_config('app.club_season_completion','on',true);
 
 -- Rename the divisions to match the supplied 960-club list. These are
 -- in-place text updates: club IDs, names, managers, fixtures, and standings

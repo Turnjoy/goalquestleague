@@ -347,6 +347,47 @@ export async function rescheduleFixture(fixtureId, newDate) {
   if (error) throw error;
 }
 
+export async function getInternationalBreak(leagueName, division, seasonYear) {
+  const divisionNames = getClubDivisionStorageNames(leagueName, division);
+  const { data: existingClubs, error: lookupError } = await supabase
+    .from('league_clubs')
+    .select('division')
+    .eq('league_name', leagueName)
+    .in('division', divisionNames)
+    .limit(1);
+  if (lookupError) throw lookupError;
+  const storedDivision = existingClubs?.[0]?.division || division;
+  const { data, error } = await supabase
+    .from('league_international_breaks')
+    .select('*')
+    .eq('league_name', leagueName)
+    .eq('division', storedDivision)
+    .eq('season_year', seasonYear)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function syncInternationalBreak(leagueName, division, seasonYear, active) {
+  const divisionNames = getClubDivisionStorageNames(leagueName, division);
+  const { data: existingClubs, error: lookupError } = await supabase
+    .from('league_clubs')
+    .select('division')
+    .eq('league_name', leagueName)
+    .in('division', divisionNames)
+    .limit(1);
+  if (lookupError) throw lookupError;
+  const storedDivision = existingClubs?.[0]?.division || division;
+  const { data, error } = await supabase.rpc('sync_international_break', {
+    p_league_name: leagueName,
+    p_division: storedDivision,
+    p_season_year: seasonYear,
+    p_active: active,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function permanentBanPlayer(playerId, banReason, notes) {
   const { error } = await supabase.rpc('admin_permanent_ban_player', {
     player_id_input: playerId,

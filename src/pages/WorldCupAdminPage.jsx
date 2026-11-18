@@ -23,6 +23,7 @@ import {
   getCountries,
   getGroupAssignments,
   assignCountryToGroup,
+  autoAssignWorldCupGroups,
   getAvailableManagers,
   appointCountryManager,
   getCountryManager,
@@ -374,6 +375,7 @@ function GroupsTab({ tournament, onRefresh }) {
   const [loading, setLoading] = useState(true);
   const [selectedCountry, setSelectedCountry] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState('');
+  const [drawingGroups, setDrawingGroups] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -409,15 +411,43 @@ function GroupsTab({ tournament, onRefresh }) {
     }
   }
 
+  async function handleAutoDraw() {
+    if (groupAssignments.length > 0 &&
+        !window.confirm('This will replace all current group assignments. Continue with the automatic draw?')) {
+      return;
+    }
+
+    setDrawingGroups(true);
+    try {
+      await autoAssignWorldCupGroups(tournament.id);
+      await loadData();
+      onRefresh();
+    } catch (err) {
+      alert(`Failed to create automatic draw: ${err.message}`);
+    } finally {
+      setDrawingGroups(false);
+    }
+  }
+
   const unassignedCountries = countries.filter(c => !c.group_assignment);
 
   return (
     <div className="space-y-6">
       {/* Assignment Form */}
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-          Assign Country to Group
-        </h3>
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            Assign Country to Group
+          </h3>
+          <button
+            type="button"
+            onClick={handleAutoDraw}
+            disabled={drawingGroups}
+            className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {drawingGroups ? 'Drawing...' : 'Auto Draw Groups'}
+          </button>
+        </div>
         <div className="flex flex-wrap gap-4">
           <div className="flex-1 min-w-[200px]">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
