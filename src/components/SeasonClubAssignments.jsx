@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { clubAssignmentTopic } from '../lib/clubAssignments.js';
-import { CLUB_LEAGUE_DIVISIONS, CLUB_LEAGUE_NAMES } from '../lib/divisions.js';
+import {
+  CLUB_LEAGUE_DIVISIONS,
+  CLUB_LEAGUE_NAMES,
+  getClubDivisionDisplayName,
+  getClubDivisionStorageNames,
+} from '../lib/divisions.js';
 
 function playerLabel(player) {
   return player.manager_handle || player.gamertag || player.full_name || player.email || player.id;
@@ -10,9 +15,9 @@ function playerLabel(player) {
 async function fetchAssignmentData(league, division, seasonYear) {
   const clubResult = await supabase
     .from('league_clubs')
-    .select('id, club_number, club_name')
+    .select('id, club_number, club_name, division')
     .eq('league_name', league)
-    .eq('division', division)
+    .in('division', getClubDivisionStorageNames(league, division))
     .order('club_number');
   if (clubResult.error) throw clubResult.error;
 
@@ -52,6 +57,7 @@ async function fetchAssignmentData(league, division, seasonYear) {
 
   return {
     clubs: clubResult.data || [],
+    storedDivision: clubResult.data?.[0]?.division || division,
     destinations: destinationsResult.data || [],
     moveHistory: moveHistoryResult.data || [],
     assignments: Object.fromEntries(assignmentRows.map(row => [row.club_id, row.player_id])),
@@ -68,6 +74,7 @@ export default function SeasonClubAssignments({
   onSeasonYearChange,
 }) {
   const [clubs, setClubs] = useState([]);
+  const [storedDivision, setStoredDivision] = useState(division);
   const [players, setPlayers] = useState([]);
   const [assignments, setAssignments] = useState({});
   const [savedAssignments, setSavedAssignments] = useState({});
@@ -117,6 +124,7 @@ export default function SeasonClubAssignments({
         const data = await fetchAssignmentData(league, division, parsedSeasonYear);
         if (!active) return;
         setClubs(data.clubs);
+        setStoredDivision(data.storedDivision);
         setDestinations(data.destinations);
         setMoveHistory(data.moveHistory);
         setAssignments(data.assignments);
@@ -172,7 +180,7 @@ export default function SeasonClubAssignments({
     try {
       const { error } = await supabase.rpc('admin_save_season_club_assignments', {
         p_league_name: league,
-        p_division: division,
+        p_division: storedDivision,
         p_season_year: parsedSeasonYear,
         p_assignments: clubs.map(club => ({
           club_id: club.id,
@@ -185,6 +193,7 @@ export default function SeasonClubAssignments({
       try {
         const data = await fetchAssignmentData(league, division, parsedSeasonYear);
         setClubs(data.clubs);
+        setStoredDivision(data.storedDivision);
         setDestinations(data.destinations);
         setMoveHistory(data.moveHistory);
         setAssignments(data.assignments);
@@ -206,7 +215,7 @@ export default function SeasonClubAssignments({
     const grouped = new Map();
     for (const option of destinations) {
       const key = `${option.league_name}::${option.division}`;
-      if (option.league_name === league && option.division === division) continue;
+      if (option.league_name === league && option.division === storedDivision) continue;
       const current = grouped.get(key) || { league_name: option.league_name, division: option.division, clubCount: 0 };
       current.clubCount += 1;
       grouped.set(key, current);
@@ -311,12 +320,12 @@ export default function SeasonClubAssignments({
               setUpperScope(replacement ? `${replacement.league_name}::${replacement.division}` : '');
             }
           }} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950">
-            {movementScopes.map(scope => <option key={`${scope.league_name}::${scope.division}`} value={`${scope.league_name}::${scope.division}`}>{scope.league_name} · {scope.division}</option>)}
+            {movementScopes.map(scope => <option key={`${scope.league_name}::${scope.division}`} value={`${scope.league_name}::${scope.division}`}>{scope.league_name} · {getClubDivisionDisplayName(scope.league_name, scope.division)}</option>)}
           </select>
         </label>
         <label className="text-sm font-bold text-slate-700 dark:text-slate-200">Upper division
           <select value={upperScope} onChange={event => setUpperScope(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950">
-            {movementScopes.filter(scope => `${scope.league_name}::${scope.division}` !== lowerScope).map(scope => <option key={`${scope.league_name}::${scope.division}`} value={`${scope.league_name}::${scope.division}`}>{scope.league_name} · {scope.division}</option>)}
+            {movementScopes.filter(scope => `${scope.league_name}::${scope.division}` !== lowerScope).map(scope => <option key={`${scope.league_name}::${scope.division}`} value={`${scope.league_name}::${scope.division}`}>{scope.league_name} · {getClubDivisionDisplayName(scope.league_name, scope.division)}</option>)}
           </select>
         </label>
         <p className="text-xs leading-5 text-slate-600 dark:text-slate-300">Uses the existing standings order: points, goal difference, goals scored, then matches played. The server requires both stop dates to pass, terminal fixtures, 20 clubs, and standings for all 20 clubs.</p>
@@ -455,7 +464,7 @@ export default function SeasonClubAssignments({
             </div>
             <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">Destination league and division
               <select value={moveTarget} onChange={event => { setMoveTarget(event.target.value); setCounterpartClubId(''); }} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950">
-                {moveModal.options.map(option => <option key={`${option.league_name}::${option.division}`} value={`${option.league_name}::${option.division}`}>{option.league_name} · {option.division} ({option.clubCount}/20 clubs)</option>)}
+                {moveModal.options.map(option => <option key={`${option.league_name}::${option.division}`} value={`${option.league_name}::${option.division}`}>{option.league_name} · {getClubDivisionDisplayName(option.league_name, option.division)} ({option.clubCount}/20 clubs)</option>)}
               </select>
             </label>
             {moveModal.options.find(option => `${option.league_name}::${option.division}` === moveTarget)?.clubCount >= 20 && <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">Club moving in the opposite direction

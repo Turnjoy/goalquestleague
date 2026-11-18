@@ -1,15 +1,57 @@
 const leagueDivisionNames = {
   'Apex Football League': ['Premier', 'Apex Vanguard', 'Apex Arena', 'Apex Circuit', 'Apex Outpost'],
-  'Crown Super League': ['Royal Division', 'Crown Sovereign', 'Crown Throne', 'Crown Regency', 'Crown Manor'],
-  'Diamond Elite League': ['Elite', 'Diamond Prism', 'Diamond Facet', 'Diamond Vault', 'Diamond Core'],
-  'Platinum Champions League': ['Championship', 'Platinum Masters', 'Platinum Citadel', 'Platinum Forge', 'Platinum Crucible'],
-  'Gold Masters League': ['Grandmaster', 'Gold Aurum', 'Gold Bullion', 'Gold Reserve', 'Gold Ingot'],
-  'Silver Stars League': ['Supernova', 'Silver Sterling', 'Silver Comet', 'Silver Orbit', 'Silver Horizon'],
-  'Bronze Victory League': ['Triumph Division', 'Bronze Valor', 'Bronze Conquest', 'Bronze Legion', 'Bronze Garrison'],
-  'Copper Legends League': ['Mythic Division', 'Copper Odyssey', 'Copper Saga', 'Copper Relic', 'Copper Roots'],
+  'Crown Super League': ['Royal', 'Sovereign', 'Throne', 'Regency', 'Manor'],
+  'Diamond Elite League': ['Elite', 'Prism', 'Facet', 'Vault', 'Core'],
+  'Platinum Champions League': ['Championship', 'Masters', 'Citadel', 'Forge', 'Crucible'],
+  'Gold Masters League': ['Grandmaster', 'Aurum', 'Bullion', 'Reserve', 'Ingot'],
+  'Silver Stars League': ['Supernova', 'Sterling', 'Comet', 'Orbit', 'Horizon'],
+  'Bronze Victory League': ['Triumph', 'Valor', 'Conquest', 'Legion', 'Garrison'],
+  'Copper Legends League': ['Mythic', 'Odyssey', 'Saga', 'Relic', 'Roots'],
   'Iron Warriors League': ['Iron Fortress', 'Vanguard Bastion', 'Steel Bulwark', 'Armor Citadel', 'Siege Ground'],
   'Steel Titans League': ['Titan Core', 'Colossus Ring', 'Alloy Arena', 'Forge Circuit', 'Metal Vanguard'],
 };
+
+// The live database may have the earlier tier labels until the matching SQL
+// rename migration is applied. Read/write helpers keep club assignment usable
+// during that transition while presenting the requested names in the UI.
+const legacyClubDivisionNames = {
+  'Crown Super League': {
+    Royal: 'Royal Division', Sovereign: 'Crown Sovereign', Throne: 'Crown Throne',
+    Regency: 'Crown Regency', Manor: 'Crown Manor',
+  },
+  'Diamond Elite League': {
+    Prism: 'Diamond Prism', Facet: 'Diamond Facet', Vault: 'Diamond Vault', Core: 'Diamond Core',
+  },
+  'Platinum Champions League': {
+    Masters: 'Platinum Masters', Citadel: 'Platinum Citadel', Forge: 'Platinum Forge',
+    Crucible: 'Platinum Crucible',
+  },
+  'Gold Masters League': {
+    Aurum: 'Gold Aurum', Bullion: 'Gold Bullion', Reserve: 'Gold Reserve', Ingot: 'Gold Ingot',
+  },
+  'Silver Stars League': {
+    Sterling: 'Silver Sterling', Comet: 'Silver Comet', Orbit: 'Silver Orbit', Horizon: 'Silver Horizon',
+  },
+  'Bronze Victory League': {
+    Triumph: 'Triumph Division', Valor: 'Bronze Valor', Conquest: 'Bronze Conquest',
+    Legion: 'Bronze Legion', Garrison: 'Bronze Garrison',
+  },
+  'Copper Legends League': {
+    Mythic: 'Mythic Division', Odyssey: 'Copper Odyssey', Saga: 'Copper Saga',
+    Relic: 'Copper Relic', Roots: 'Copper Roots',
+  },
+};
+
+export function getClubDivisionStorageNames(leagueName, divisionName) {
+  const legacyNames = legacyClubDivisionNames[leagueName] || {};
+  const currentName = Object.entries(legacyNames).find(([, legacyName]) => legacyName === divisionName)?.[0];
+  return [...new Set([divisionName, legacyNames[divisionName], currentName].filter(Boolean))];
+}
+
+export function getClubDivisionDisplayName(leagueName, divisionName) {
+  const legacyNames = legacyClubDivisionNames[leagueName] || {};
+  return Object.entries(legacyNames).find(([, legacyName]) => legacyName === divisionName)?.[0] || divisionName;
+}
 
 export const LEAGUES = Object.entries(leagueDivisionNames).map(([name, divisions]) => ({
   name,

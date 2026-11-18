@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { getClubDivisionDisplayName, getClubDivisionStorageNames } from './divisions.js';
 
 export async function fetchMyFixtures(userId) {
   const { data: assignments, error: assignmentsError } = await supabase
@@ -98,9 +99,11 @@ function dedupeStandingsRows(rows) {
 }
 
 function mapStandingsDirectoryRow(row) {
+  const division = getClubDivisionDisplayName(row.league_name, row.division);
   return {
     ...row,
-    division_name: row.division,
+    division,
+    division_name: division,
     club_name: row.club_name ?? row.team_name ?? 'Unassigned',
     team_name: row.club_name ?? row.team_name ?? 'Unassigned',
     player_name: row.manager_name || row.player_name || 'Unassigned',
@@ -118,14 +121,27 @@ function mapStandingsDirectoryRow(row) {
 
 export async function fetchStandings(divisionOrFilters = {}, league, seasonYear) {
   const filters = normalizeStandingsFilters(divisionOrFilters, league, seasonYear);
-  const params = {};
-  if (filters.league) params.p_league_name = filters.league;
-  if (filters.division) params.p_division = filters.division;
-  if (filters.season) params.p_season = filters.season;
-
-  const rows = await fetchAllPages(() =>
-    supabase.rpc('get_standings_directory', params, { get: true }),
-  );
+  let scopes = [{ league: filters.league, division: filters.division }];
+  if (filters.league && filters.division) {
+    scopes = getClubDivisionStorageNames(filters.league, filters.division)
+      .map(division => ({ league: filters.league, division }));
+  } else if (!filters.league && filters.division) {
+    const options = await fetchStandingsOptions();
+    scopes = options
+      .filter(option => option.division === filters.division)
+      .flatMap(option => getClubDivisionStorageNames(option.league_name, option.division)
+        .map(division => ({ league: option.league_name, division })));
+  }
+  const rows = [];
+  for (const scope of scopes) {
+    const params = {};
+    if (scope.league) params.p_league_name = scope.league;
+    if (scope.division) params.p_division = scope.division;
+    if (filters.season) params.p_season = filters.season;
+    rows.push(...await fetchAllPages(() =>
+      supabase.rpc('get_standings_directory', params, { get: true }),
+    ));
+  }
 
   return dedupeStandingsRows(rows)
     .map(mapStandingsDirectoryRow)
@@ -136,7 +152,10 @@ export async function fetchStandingsOptions() {
   const rows = await fetchAllPages(() =>
     supabase.rpc('get_standings_filter_options', {}, { get: true }),
   );
-  return rows;
+  return rows.map(row => ({
+    ...row,
+    division: getClubDivisionDisplayName(row.league_name, row.division),
+  }));
 }
 
 export async function confirmScore(fixtureId) {
@@ -208,7 +227,10 @@ export async function fetchPlayers(searchTerm = '', leagueName = '', division = 
     query = query.or(`email.ilike.%${searchTerm}%,manager_handle.ilike.%${searchTerm}%,gamertag.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%,whatsapp_number.ilike.%${searchTerm}%`);
   }
   if (leagueName) query = query.eq('league_name', leagueName);
-  if (division) query = query.eq('division', division);
+  if (division) {
+    const divisions = leagueName ? getClubDivisionStorageNames(leagueName, division) : [division];
+    query = divisions.length > 1 ? query.in('division', divisions) : query.eq('division', division);
+  }
   const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
@@ -271,9 +293,18 @@ export async function deductPlayerPoints(playerId, division, season, amount) {
 }
 
 export async function generateClubFixtures(leagueName, division, startDate, endDate, stopDate) {
+  const divisionNames = getClubDivisionStorageNames(leagueName, division);
+  const { data: existingClubs, error: lookupError } = await supabase
+    .from('league_clubs')
+    .select('division')
+    .eq('league_name', leagueName)
+    .in('division', divisionNames)
+    .limit(1);
+  if (lookupError) throw lookupError;
+  const storedDivision = existingClubs?.[0]?.division || division;
   const { data, error } = await supabase.rpc('admin_generate_club_fixtures', {
     p_league_name: leagueName,
-    p_division: division,
+    p_division: storedDivision,
     p_start_date: startDate,
     p_end_date: endDate,
     p_stop_date: stopDate,
