@@ -1,7 +1,7 @@
 import { BadgeDollarSign, Download, Handshake, LogIn, Trophy, UserPlus, Verified } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { TIERS, LEAGUES } from '../lib/divisions.js';
+import { LEAGUES } from '../lib/divisions.js';
 import SeoMeta from '../components/SeoMeta.jsx';
 import { PUBLIC_SEO } from '../lib/publicSeo.js';
 import { showInstallPrompt, subscribeToInstallPrompt } from '../lib/pwaInstall.js';
@@ -11,7 +11,7 @@ export default function LandingPage() {
   const [installHelp, setInstallHelp] = useState('');
   const [installed, setInstalled] = useState(false);
   const [selectedLeague, setSelectedLeague] = useState(LEAGUES[0].name);
-  const [selectedTier, setSelectedTier] = useState(TIERS[0].name);
+  const [selectedTier, setSelectedTier] = useState(LEAGUES[0].divisions[0].name);
 
   const selectedLeagueData = useMemo(
     () => LEAGUES.find((league) => league.name === selectedLeague) ?? LEAGUES[0],
@@ -19,8 +19,8 @@ export default function LandingPage() {
   );
 
   const selectedTierData = useMemo(
-    () => TIERS.find((tier) => tier.name === selectedTier) ?? TIERS[0],
-    [selectedTier],
+    () => selectedLeagueData.divisions.find((tier) => tier.name === selectedTier) ?? selectedLeagueData.divisions[0],
+    [selectedLeagueData, selectedTier],
   );
 
   useEffect(() => {
@@ -121,7 +121,7 @@ export default function LandingPage() {
           </div>
           <div className="rounded border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <p className="text-xs font-bold uppercase text-slate-500">Selected</p>
-            <p className="font-black">{selectedLeagueData.name} · {selectedTierData.name} · {selectedTierData.slots} slots</p>
+            <p className="font-black">{selectedLeagueData.name} · {selectedTierData.name} · {selectedTierData.slots ?? 'Open'} slots</p>
           </div>
         </div>
         
@@ -132,7 +132,10 @@ export default function LandingPage() {
               <button
                 key={league.name}
                 type="button"
-                onClick={() => setSelectedLeague(league.name)}
+                onClick={() => {
+                  setSelectedLeague(league.name);
+                  setSelectedTier(league.divisions[0].name);
+                }}
                 className={`rounded-md border p-4 text-left transition ${
                   selectedLeague === league.name
                     ? 'border-gold bg-ink text-white shadow-panel'
@@ -151,7 +154,7 @@ export default function LandingPage() {
         <div>
           <h3 className="text-lg font-black mb-3">Tiers in {selectedLeagueData.name}</h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {TIERS.map((tier) => (
+            {selectedLeagueData.divisions.map((tier) => (
               <button
                 key={tier.name}
                 type="button"
