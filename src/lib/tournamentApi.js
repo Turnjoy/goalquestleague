@@ -96,8 +96,6 @@ export async function getCountriesByGroup(tournamentId, groupLetter) {
 // Manager Appointment Functions
 
 export async function getAvailableManagers() {
-  const currentYear = new Date().getFullYear();
-  
   const { data, error } = await supabase
     .from('profiles')
     .select(`
@@ -114,19 +112,10 @@ export async function getAvailableManagers() {
         )
       )
     `)
-    .eq('is_approved', true)
-    .eq('status', 'active')
     .eq('is_admin', false);
   
   if (error) throw error;
-  
-  // Filter managers with current season assignments
-  return data.filter(profile => 
-    profile.season_club_assignments && 
-    profile.season_club_assignments.some(
-      assignment => assignment.season_year === currentYear
-    )
-  );
+  return data;
 }
 
 export async function appointCountryManager(tournamentId, countryId, managerId) {

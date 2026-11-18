@@ -655,7 +655,7 @@ function ManagersTab({ tournament, onRefresh }) {
                       );
                       return (
                         <option key={manager.id} value={manager.id}>
-                          {manager.manager_handle || manager.gamertag} ({currentAssignment?.league_clubs?.club_name || 'No club'})
+                          {manager.manager_handle || manager.gamertag || manager.full_name || 'Unnamed account'} ({currentAssignment?.league_clubs?.club_name || 'No club'})
                         </option>
                       );
                     })}
