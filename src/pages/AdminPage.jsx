@@ -494,6 +494,37 @@ function AdminContent() {
               <p className="text-xs text-slate-600 dark:text-slate-400">Season round-robin scheduling for assigned clubs</p>
             </div>
           </div>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
+            <div>
+              <p className="font-bold text-slate-900 dark:text-white">Admin-only: International Break</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                While on, pending fixture dates and the season deadline move forward daily.
+              </p>
+              {internationalBreakStatus && (
+                <p className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                  {internationalBreakStatus}
+                </p>
+              )}
+            </div>
+            <button
+              id="international-break-toggle"
+              type="button"
+              role="switch"
+              aria-label="International break"
+              aria-checked={internationalBreakActive}
+              disabled={internationalBreakSyncing}
+              onClick={() => handleInternationalBreakToggle(!internationalBreakActive)}
+              className={`relative h-7 w-12 rounded-full transition-colors ${
+                internationalBreakActive ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-600'
+              }`}
+            >
+              <span
+                className={`absolute top-1.5 h-4 w-4 rounded-full bg-white transition-transform ${
+                  internationalBreakActive ? 'translate-x-7' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
           <div className="flex flex-wrap gap-4 items-center">
             <div className="flex items-center gap-3">
               <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Target League:</label>
@@ -556,28 +587,6 @@ function AdminContent() {
                 onChange={(event) => setFixtureStopDate(event.target.value)}
               />
             </div>
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2">
-              <label className="text-sm font-bold text-slate-700 dark:text-slate-300" htmlFor="international-break-toggle">
-                International Break
-              </label>
-              <button
-                id="international-break-toggle"
-                type="button"
-                role="switch"
-                aria-checked={internationalBreakActive}
-                disabled={internationalBreakSyncing}
-                onClick={() => handleInternationalBreakToggle(!internationalBreakActive)}
-                className={`relative h-6 w-11 rounded-full transition-colors ${
-                  internationalBreakActive ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-600'
-                }`}
-              >
-                <span
-                  className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${
-                    internationalBreakActive ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
             <GradientButton
               variant="primary"
               onClick={handleGenerateFixtures}
@@ -590,11 +599,6 @@ function AdminContent() {
           <p className="mt-3 text-xs text-slate-600 dark:text-slate-400">
             Matchweeks are generated for the assigned clubs. Assign all 20 clubs for the selected league, division, and season first.
           </p>
-          {internationalBreakStatus && (
-            <p className={`mt-2 text-xs font-bold ${internationalBreakActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>
-              {internationalBreakStatus}
-            </p>
-          )}
         </GlassCard>
       )}
 

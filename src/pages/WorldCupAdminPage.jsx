@@ -25,7 +25,7 @@ import {
   assignCountryToGroup,
   autoAssignWorldCupGroups,
   getAvailableManagers,
-  appointCountryManager,
+  saveCountryManagerAppointments,
   getCountryManager,
   getCountryManagerHistory,
   getAllManagerAppointments,
@@ -536,8 +536,9 @@ function ManagersTab({ tournament, onRefresh }) {
   const [managers, setManagers] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCountry, setSelectedCountry] = useState(null);
-  const [selectedManager, setSelectedManager] = useState(null);
+  const [selectedManagers, setSelectedManagers] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const [countries, setCountries] = useState([]);
 
   useEffect(() => {
@@ -546,6 +547,7 @@ function ManagersTab({ tournament, onRefresh }) {
 
   async function loadData() {
     setLoading(true);
+    setError('');
     try {
       const [managersData, appointmentsData, countriesData] = await Promise.all([
         getAvailableManagers(),
@@ -555,124 +557,114 @@ function ManagersTab({ tournament, onRefresh }) {
       setManagers(managersData);
       setAppointments(appointmentsData);
       setCountries(countriesData);
+      setSelectedManagers(Object.fromEntries(
+        appointmentsData.map(appointment => [appointment.country_id, appointment.manager_id]),
+      ));
     } catch (err) {
-      console.error('Failed to load managers data:', err);
+      setError(`Failed to load manager call-ups: ${err.message}`);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleAppointManager() {
-    if (!selectedCountry || !selectedManager) return;
-    
+  const currentManagerByCountry = new Map(
+    appointments.map(appointment => [appointment.country_id, appointment.manager_id]),
+  );
+  const changedAssignments = countries
+    .filter(country => selectedManagers[country.id] &&
+      selectedManagers[country.id] !== currentManagerByCountry.get(country.id))
+    .map(country => ({
+      country_id: country.id,
+      manager_id: selectedManagers[country.id],
+    }));
+
+  async function handleSaveAppointments() {
+    if (changedAssignments.length === 0) return;
+
+    setSaving(true);
+    setError('');
     try {
-      await appointCountryManager(tournament.id, selectedCountry, selectedManager);
-      setSelectedCountry(null);
-      setSelectedManager(null);
+      await saveCountryManagerAppointments(tournament.id, changedAssignments);
       await loadData();
       onRefresh();
     } catch (err) {
-      alert(`Failed to appoint manager: ${err.message}`);
+      setError(`Failed to save appointments: ${err.message}`);
+    } finally {
+      setSaving(false);
     }
   }
 
-  const unassignedCountries = countries.filter(c => 
-    !appointments.some(a => a.country_id === c.id)
-  );
-
   return (
     <div className="space-y-6">
-      {/* Appointment Form */}
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-          Appoint Country Manager
-        </h3>
-        <div className="flex flex-wrap gap-4">
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Select Country
-            </label>
-            <select
-              value={selectedCountry || ''}
-              onChange={(e) => setSelectedCountry(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2"
-            >
-              <option value="">Choose country...</option>
-              {unassignedCountries.map(country => (
-                <option key={country.id} value={country.id}>
-                  {country.flag_emoji} {country.country_name}
-                </option>
-              ))}
-            </select>
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+              Country Manager Call-ups
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              Select a manager beside each country, then save all changes together.
+            </p>
           </div>
-          <div className="flex-1 min-w-[250px]">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Select Manager
-            </label>
-            <select
-              value={selectedManager || ''}
-              onChange={(e) => setSelectedManager(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2"
-            >
-              <option value="">Choose manager...</option>
-              {managers.map(manager => {
-                const currentAssignment = manager.season_club_assignments?.[0];
-                return (
-                  <option key={manager.id} value={manager.id}>
-                    {manager.manager_handle || manager.gamertag} ({currentAssignment?.league_clubs?.club_name || 'No club'})
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-          <div className="flex items-end">
-            <button
-              onClick={handleAppointManager}
-              disabled={!selectedCountry || !selectedManager}
-              className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Appoint
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleSaveAppointments}
+            disabled={saving || loading || changedAssignments.length === 0}
+            className="px-5 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Saving appointments...' : `Save Appointments (${changedAssignments.length})`}
+          </button>
         </div>
-      </div>
-
-      {/* Current Appointments */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-        <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-            Current Manager Appointments
-          </h3>
-        </div>
-        <div className="divide-y divide-slate-200 dark:divide-slate-700">
-          {appointments.length === 0 ? (
-            <div className="p-6 text-center text-slate-500 dark:text-slate-400">
-              No manager appointments yet
-            </div>
-          ) : (
-            appointments.map(appointment => (
-              <div key={appointment.id} className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="text-2xl">{appointment.countries?.flag_emoji}</span>
-                  <div>
-                    <p className="font-medium text-slate-900 dark:text-white">
-                      {appointment.countries?.country_name}
-                    </p>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
-                      Manager: {appointment.profiles?.manager_handle || appointment.profiles?.gamertag}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-500">
-                      Club: {appointment.source_club_name}
-                    </p>
+        {error && (
+          <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+            {error}
+          </p>
+        )}
+        {loading ? (
+          <p className="py-8 text-center text-slate-500 dark:text-slate-400">Loading countries and managers...</p>
+        ) : (
+          <div className="divide-y divide-slate-200 dark:divide-slate-700">
+            {countries.map(country => {
+              const appointment = appointments.find(item => item.country_id === country.id);
+              return (
+                <div key={country.id} className="grid gap-3 py-3 md:grid-cols-[minmax(12rem,1fr)_minmax(18rem,2fr)] md:items-center">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{country.flag_emoji}</span>
+                    <div>
+                      <p className="font-medium text-slate-900 dark:text-white">{country.country_name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {appointment
+                          ? `Current: ${appointment.profiles?.manager_handle || appointment.profiles?.gamertag} · ${appointment.source_club_name}`
+                          : 'No manager appointed'}
+                      </p>
+                    </div>
                   </div>
+                  <select
+                    aria-label={`Manager for ${country.country_name}`}
+                    value={selectedManagers[country.id] || ''}
+                    onChange={event => setSelectedManagers(current => ({
+                      ...current,
+                      [country.id]: event.target.value,
+                    }))}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+                  >
+                    <option value="">Leave unchanged / unassigned</option>
+                    {managers.map(manager => {
+                      const currentAssignment = manager.season_club_assignments?.find(
+                        assignment => assignment.season_year === new Date().getFullYear(),
+                      );
+                      return (
+                        <option key={manager.id} value={manager.id}>
+                          {manager.manager_handle || manager.gamertag} ({currentAssignment?.league_clubs?.club_name || 'No club'})
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
-                <div className="text-right text-sm text-slate-500 dark:text-slate-400">
-                  <p>Appointed: {new Date(appointment.appointment_date).toLocaleDateString()}</p>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

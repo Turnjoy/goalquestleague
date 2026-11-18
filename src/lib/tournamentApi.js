@@ -138,6 +138,15 @@ export async function appointCountryManager(tournamentId, countryId, managerId) 
   if (error) throw error;
 }
 
+export async function saveCountryManagerAppointments(tournamentId, assignments) {
+  const { data, error } = await supabase.rpc('appoint_country_managers', {
+    tournament_id_input: tournamentId,
+    manager_assignments_input: assignments
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function getCountryManager(tournamentId, countryId) {
   const { data, error } = await supabase
     .from('world_cup_manager_appointments')
