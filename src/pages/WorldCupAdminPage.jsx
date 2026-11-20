@@ -104,14 +104,14 @@ function WorldCupAdminContent() {
         {/* Header */}
         <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
+            <div className="flex min-h-16 items-center justify-between gap-2 py-2">
               <div className="flex items-center gap-3">
-                <Globe className="h-8 w-8 text-indigo-600" />
+                <Globe className="h-7 w-7 shrink-0 text-indigo-600 sm:h-8 sm:w-8" />
                 <div>
-                  <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+                  <h1 className="text-sm font-bold leading-tight text-slate-900 dark:text-white sm:text-xl">
                     Elite World Cup 2031/2032
                   </h1>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                  <p className="hidden text-sm text-slate-600 dark:text-slate-400 sm:block">
                     Tournament Administration
                   </p>
                 </div>
@@ -119,7 +119,7 @@ function WorldCupAdminContent() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => navigate('/admin')}
-                  className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+                  className="whitespace-nowrap rounded-lg px-2 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 sm:px-4 sm:text-sm"
                 >
                   Back to Admin
                 </button>
@@ -167,9 +167,9 @@ function WorldCupAdminContent() {
         )}
 
         {/* Tabs */}
-        <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="flex space-x-1" aria-label="Tabs">
+        <div className="border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+          <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+            <nav className="hidden space-x-1 md:flex" aria-label="World Cup admin sections">
               {TABS.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -188,11 +188,31 @@ function WorldCupAdminContent() {
                 );
               })}
             </nav>
+            <nav className="grid grid-cols-3 gap-2 py-2 md:hidden" aria-label="World Cup admin sections">
+              {TABS.map(tab => {
+                const Icon = tab.icon;
+                const selected = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    aria-current={selected ? 'page' : undefined}
+                    className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg border px-1 py-2 text-center text-[11px] font-semibold leading-tight transition-colors ${selected
+                      ? 'border-indigo-600 bg-indigo-600 text-white'
+                      : 'border-slate-200 bg-white text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200'}`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
           </div>
         </div>
 
         {/* Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="mx-auto min-h-[calc(100dvh-9rem)] w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
           {error && (
             <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
               <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
@@ -256,7 +276,7 @@ function WorldCupAdminContent() {
               )}
             </>
           )}
-        </div>
+        </main>
     </div>
   );
 }
@@ -1034,8 +1054,13 @@ function DetailItem({ label, value }) {
 
 function FixtureRow({ fixture, onSubmitResult }) {
   const [editing, setEditing] = useState(false);
-  const [homeScore, setHomeScore] = useState(fixture.home_score || '');
-  const [awayScore, setAwayScore] = useState(fixture.away_score || '');
+  const [homeScore, setHomeScore] = useState(fixture.home_score ?? '');
+  const [awayScore, setAwayScore] = useState(fixture.away_score ?? '');
+  const fixtureLabel = fixture.match_type === 'group_stage'
+    ? `Group ${fixture.group_letter || '?'} · ${Number(fixture.leg) === 2 ? 'Second Leg' : 'First Leg'}`
+    : fixture.knockout_round === 'opening_round'
+      ? 'Round of 32'
+      : (fixture.knockout_round || 'Knockout').replaceAll('_', ' ');
 
   const handleSubmit = () => {
     if (homeScore === '' || awayScore === '') return;
@@ -1044,15 +1069,23 @@ function FixtureRow({ fixture, onSubmitResult }) {
   };
 
   return (
-    <div className="p-4 flex items-center justify-between">
-      <div className="flex items-center gap-4 flex-1">
-        <div className="flex items-center gap-2 flex-1">
-          <span className="text-xl">{fixture.home_country?.flag_emoji}</span>
-          <span className="font-medium text-slate-900 dark:text-white">
+    <div className="space-y-3 p-3 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="inline-flex min-h-7 items-center rounded-full bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+          {fixtureLabel}
+        </span>
+        <span className="text-xs font-medium capitalize text-slate-500 dark:text-slate-400">
+          {fixture.status?.replaceAll('_', ' ') || 'scheduled'}
+        </span>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-4">
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+          <span className="shrink-0 text-xl">{fixture.home_country?.flag_emoji}</span>
+          <span className="truncate text-sm font-medium text-slate-900 dark:text-white sm:text-base">
             {fixture.home_country?.country_name}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center gap-1 sm:gap-2">
           {editing ? (
             <>
               <input
@@ -1060,7 +1093,8 @@ function FixtureRow({ fixture, onSubmitResult }) {
                 min="0"
                 value={homeScore}
                 onChange={(e) => setHomeScore(e.target.value)}
-                className="w-16 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-2 py-1 text-center"
+                aria-label={`${fixture.home_country?.country_name} score`}
+                className="h-10 w-12 rounded border border-slate-300 bg-white px-1 text-center text-lg text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white sm:w-14"
               />
               <span className="text-slate-500">-</span>
               <input
@@ -1068,17 +1102,20 @@ function FixtureRow({ fixture, onSubmitResult }) {
                 min="0"
                 value={awayScore}
                 onChange={(e) => setAwayScore(e.target.value)}
-                className="w-16 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-2 py-1 text-center"
+                aria-label={`${fixture.away_country?.country_name} score`}
+                className="h-10 w-12 rounded border border-slate-300 bg-white px-1 text-center text-lg text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white sm:w-14"
               />
               <button
                 onClick={handleSubmit}
-                className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
+                aria-label="Save score"
+                className="flex h-10 w-9 items-center justify-center rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
               >
                 <Check className="h-4 w-4" />
               </button>
               <button
                 onClick={() => setEditing(false)}
-                className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                aria-label="Cancel score edit"
+                className="flex h-10 w-9 items-center justify-center rounded text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1086,16 +1123,17 @@ function FixtureRow({ fixture, onSubmitResult }) {
           ) : (
             <>
               <span className="font-bold text-slate-900 dark:text-white">
-                {fixture.home_score !== null ? fixture.home_score : '-'}
+                {fixture.home_score ?? '-'}
               </span>
               <span className="text-slate-500">-</span>
               <span className="font-bold text-slate-900 dark:text-white">
-                {fixture.away_score !== null ? fixture.away_score : '-'}
+                {fixture.away_score ?? '-'}
               </span>
               {fixture.status === 'scheduled' && (
                 <button
                   onClick={() => setEditing(true)}
-                  className="p-1 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded"
+                  aria-label="Enter match score"
+                  className="flex h-10 w-10 items-center justify-center rounded text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                 >
                   <Edit className="h-4 w-4" />
                 </button>
@@ -1103,16 +1141,12 @@ function FixtureRow({ fixture, onSubmitResult }) {
             </>
           )}
         </div>
-        <div className="flex items-center gap-2 flex-1 justify-end">
-          <span className="font-medium text-slate-900 dark:text-white">
+        <div className="flex min-w-0 items-center justify-end gap-1.5 text-right sm:gap-2">
+          <span className="truncate text-sm font-medium text-slate-900 dark:text-white sm:text-base">
             {fixture.away_country?.country_name}
           </span>
-          <span className="text-xl">{fixture.away_country?.flag_emoji}</span>
+          <span className="shrink-0 text-xl">{fixture.away_country?.flag_emoji}</span>
         </div>
-      </div>
-      <div className="ml-4 text-sm text-slate-500 dark:text-slate-400">
-        {fixture.group_letter && `Group ${fixture.group_letter}`}
-        {fixture.knockout_round && ` ${fixture.knockout_round.replace('_', ' ')}`}
       </div>
     </div>
   );

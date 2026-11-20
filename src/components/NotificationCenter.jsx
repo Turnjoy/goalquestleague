@@ -31,6 +31,9 @@ export default function NotificationCenter({ userId, leagueName, division }) {
     }
 
     loadNotifications();
+    const refreshTimer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') loadNotifications();
+    }, 30_000);
     function refreshOnResume() {
       if (document.visibilityState === 'visible') loadNotifications();
     }
@@ -44,6 +47,7 @@ export default function NotificationCenter({ userId, leagueName, division }) {
       : null;
 
     return () => {
+      window.clearInterval(refreshTimer);
       document.removeEventListener('visibilitychange', refreshOnResume);
       if (assignmentChannel) supabase.removeChannel(assignmentChannel);
     };
