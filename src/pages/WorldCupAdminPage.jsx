@@ -708,7 +708,7 @@ function FixturesTab({ tournament, onRefresh }) {
   async function handleGenerateKnockout() {
     try {
       const count = await generateKnockoutFixtures(tournament.id);
-      alert(`Generated ${count} opening knockout round fixtures`);
+      alert(`Generated ${count} Round of 32 fixtures`);
       await loadFixtures();
       onRefresh();
     } catch (err) {
@@ -806,7 +806,7 @@ function FixturesTab({ tournament, onRefresh }) {
               onClick={handleGenerateKnockout}
               className="px-3 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700"
             >
-              Opening Round
+              Round of 32
             </button>
             <button
               onClick={handleGenerateRoundOf16}
@@ -1138,9 +1138,21 @@ function GroupStandings({ group }) {
           </tr>
         </thead>
         <tbody>
-          {group.teams.map((team, index) => (
+          {group.teams.map((team, index) => {
+            const position = team.position ?? index + 1;
+            const qualificationStyle = position <= 4
+              ? 'bg-emerald-500 text-white dark:bg-emerald-600'
+              : position === 5
+                ? 'bg-rose-500 text-white dark:bg-rose-600'
+                : 'bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white';
+
+            return (
             <tr key={team.id} className="border-t border-slate-200 dark:border-slate-700">
-              <td className="py-2">{index + 1}</td>
+              <td className="py-2">
+                <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${qualificationStyle}`}>
+                  {position}
+                </span>
+              </td>
               <td className="py-2">
                 <div className="flex items-center gap-2">
                   <span>{team.countries?.flag_emoji}</span>
@@ -1154,7 +1166,7 @@ function GroupStandings({ group }) {
               <td className="py-2 text-center">{team.goal_difference}</td>
               <td className="py-2 text-center font-bold">{team.points}</td>
             </tr>
-          ))}
+          );})}
         </tbody>
       </table>
     </div>

@@ -412,7 +412,9 @@ function groupFixturesByMatchDay(fixtures) {
 
   const knockoutGroups = [...knockout.entries()].map(([round, matches]) => ({
     key: `knockout-${round}`,
-    title: round.replaceAll('_', ' ').toUpperCase(),
+    title: round === 'opening_round'
+      ? 'ROUND OF 32'
+      : round.replaceAll('_', ' ').toUpperCase(),
     matches
   }));
 
@@ -542,9 +544,21 @@ function GroupStandings({ group }) {
           </tr>
         </thead>
         <tbody>
-          {group.teams.map((team, index) => (
+          {group.teams.map((team, index) => {
+            const position = team.position ?? index + 1;
+            const qualificationStyle = position <= 4
+              ? 'bg-emerald-500 text-white dark:bg-emerald-600'
+              : position === 5
+                ? 'bg-rose-500 text-white dark:bg-rose-600'
+                : 'bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white';
+
+            return (
             <tr key={team.id} className="border-t border-slate-200 dark:border-slate-700">
-              <td className="py-2">{index + 1}</td>
+              <td className="py-2">
+                <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${qualificationStyle}`}>
+                  {position}
+                </span>
+              </td>
               <td className="py-2">
                 <div className="flex items-center gap-2">
                   <span>{team.countries?.flag_emoji}</span>
@@ -558,7 +572,7 @@ function GroupStandings({ group }) {
               <td className="py-2 text-center">{team.goal_difference}</td>
               <td className="py-2 text-center font-bold">{team.points}</td>
             </tr>
-          ))}
+          );})}
         </tbody>
       </table>
     </div>
