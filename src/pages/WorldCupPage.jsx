@@ -243,7 +243,7 @@ function OverviewContent({ tournament, countries, fixtures, standings }) {
           <div>
             <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Progress</h3>
             <dl className="space-y-2 text-sm">
-              <Detail label="Participating Countries" value={countries} />
+              <Detail label="Participating Countries" value={countries.length} />
               <Detail label="Total Fixtures" value={fixtures.length} />
               <Detail label="Completed Matches" value={completedFixtures} />
               <Detail label="Qualified for Knockout" value={qualifiedTeams} />
