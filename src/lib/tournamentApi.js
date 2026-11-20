@@ -234,7 +234,35 @@ export async function getFixtures(tournamentId, filters = {}) {
 
   const { data, error } = await query.order('match_number', { ascending: true });
   if (error) throw error;
-  return data;
+  return dedupeWorldCupGroupFixtures(data || []);
+}
+
+function dedupeWorldCupGroupFixtures(fixtures) {
+  const uniqueFixtures = new Map();
+
+  for (const fixture of fixtures) {
+    if (fixture.match_type !== 'group_stage' || !fixture.group_letter) {
+      uniqueFixtures.set(fixture.id, fixture);
+      continue;
+    }
+
+    const pair = [fixture.home_country_id, fixture.away_country_id].sort().join(':');
+    const key = `${fixture.tournament_id}:${fixture.group_letter}:${pair}`;
+    const existing = uniqueFixtures.get(key);
+    const fixtureHasResult = fixture.status !== 'scheduled'
+      || fixture.home_score != null
+      || fixture.away_score != null;
+    const existingHasResult = existing && (existing.status !== 'scheduled'
+      || existing.home_score != null
+      || existing.away_score != null);
+
+    if (!existing || (fixtureHasResult && !existingHasResult)) {
+      uniqueFixtures.set(key, fixture);
+    }
+  }
+
+  return [...uniqueFixtures.values()].sort((left, right) =>
+    (left.match_number ?? Number.MAX_SAFE_INTEGER) - (right.match_number ?? Number.MAX_SAFE_INTEGER));
 }
 
 export async function getFixtureById(fixtureId) {
