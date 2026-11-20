@@ -309,12 +309,7 @@ function FixturesContent({ fixtures }) {
     filter === 'all' ? true : f.match_type === filter
   );
 
-  const groupedFixtures = filteredFixtures.reduce((acc, fixture) => {
-    const key = fixture.group_letter || fixture.knockout_round || 'other';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(fixture);
-    return acc;
-  }, {});
+  const groupedFixtures = groupFixturesByMatchDay(filteredFixtures);
 
   return (
     <div className="space-y-6">
@@ -334,28 +329,92 @@ function FixturesContent({ fixtures }) {
         ))}
       </div>
 
-      {Object.keys(groupedFixtures).length === 0 ? (
+      {groupedFixtures.length === 0 ? (
         <div className="text-center py-12 text-slate-500 dark:text-slate-400">
           No fixtures available.
         </div>
       ) : (
-        Object.entries(groupedFixtures).map(([key, matches]) => (
+        groupedFixtures.map(({ key, title, matches }) => (
           <div key={key} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
             <div className="p-4 border-b border-slate-200 dark:border-slate-700">
               <h3 className="font-semibold text-slate-900 dark:text-white">
-                {key.startsWith('Group') ? key : key.replace('_', ' ').toUpperCase()}
+                {title}
               </h3>
             </div>
             <div className="divide-y divide-slate-200 dark:divide-slate-700">
-              {matches.map(fixture => (
-                <FixtureDisplay key={fixture.id} fixture={fixture} />
-              ))}
+              {matches.map(fixture => <FixtureDisplay key={fixture.id} fixture={fixture} />)}
             </div>
           </div>
         ))
       )}
     </div>
   );
+}
+
+function groupFixturesByMatchDay(fixtures) {
+  const groupStage = new Map();
+  const knockout = new Map();
+
+  for (const fixture of fixtures) {
+    if (fixture.match_type === 'group_stage' && fixture.group_letter) {
+      const group = groupStage.get(fixture.group_letter) || [];
+      group.push(fixture);
+      groupStage.set(fixture.group_letter, group);
+    } else {
+      const round = fixture.knockout_round || 'other';
+      const roundFixtures = knockout.get(round) || [];
+      roundFixtures.push(fixture);
+      knockout.set(round, roundFixtures);
+    }
+  }
+
+  const matchDays = new Map();
+  for (const [letter, groupFixtures] of groupStage.entries()) {
+    const teamIds = [...new Set(groupFixtures.flatMap(fixture => [
+      fixture.home_country_id,
+      fixture.away_country_id
+    ]).filter(Boolean))].sort();
+    const participants = teamIds.length % 2 === 0 ? teamIds : [...teamIds, null];
+    const rotation = participants.slice(1);
+    const matchDayByPair = new Map();
+
+    for (let day = 1; day < participants.length; day += 1) {
+      const roundTeams = [participants[0], ...rotation];
+      for (let index = 0; index < roundTeams.length / 2; index += 1) {
+        const first = roundTeams[index];
+        const second = roundTeams[roundTeams.length - 1 - index];
+        if (first && second) {
+          matchDayByPair.set([first, second].sort().join(':'), day);
+        }
+      }
+      rotation.unshift(rotation.pop());
+    }
+
+    for (const fixture of groupFixtures) {
+      const pairKey = [fixture.home_country_id, fixture.away_country_id].sort().join(':');
+      const day = matchDayByPair.get(pairKey);
+      if (!day) continue;
+      const dayFixtures = matchDays.get(day) || [];
+      dayFixtures.push({ ...fixture, display_group_letter: letter });
+      matchDays.set(day, dayFixtures);
+    }
+  }
+
+  const groupStageDays = [...matchDays.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([day, matches]) => ({
+      key: `match-day-${day}`,
+      title: `Match Day ${day}`,
+      matches: matches.sort((left, right) => left.display_group_letter.localeCompare(right.display_group_letter))
+    }));
+
+  const knockoutGroups = [...knockout.entries()].map(([round, matches]) => ({
+    key: `knockout-${round}`,
+    title: round.replaceAll('_', ' ').toUpperCase(),
+    matches
+  }));
+
+  return [...groupStageDays, ...knockoutGroups];
 }
 
 function StandingsContent({ standings }) {
@@ -433,6 +492,9 @@ function FixtureDisplay({ fixture }) {
     <div className="p-4 flex items-center justify-between">
       <div className="flex items-center gap-4 flex-1">
         <div className="flex items-center gap-2 flex-1">
+          {fixture.display_group_letter && (
+            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">Group {fixture.display_group_letter}</span>
+          )}
           <span className="text-xl">{fixture.home_country?.flag_emoji}</span>
           <span className="font-medium text-slate-900 dark:text-white">
             {fixture.home_country?.country_name}
@@ -453,9 +515,6 @@ function FixtureDisplay({ fixture }) {
           </span>
           <span className="text-xl">{fixture.away_country?.flag_emoji}</span>
         </div>
-      </div>
-      <div className="ml-4 text-sm text-slate-500 dark:text-slate-400">
-        {fixture.fixture_date && new Date(fixture.fixture_date).toLocaleDateString()}
       </div>
     </div>
   );
