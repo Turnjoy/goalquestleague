@@ -247,7 +247,8 @@ function dedupeWorldCupGroupFixtures(fixtures) {
     }
 
     const pair = [fixture.home_country_id, fixture.away_country_id].sort().join(':');
-    const key = `${fixture.tournament_id}:${fixture.group_letter}:${pair}`;
+    const leg = fixture.leg ?? 1;
+    const key = `${fixture.tournament_id}:${fixture.group_letter}:${leg}:${pair}`;
     const existing = uniqueFixtures.get(key);
     const fixtureHasResult = fixture.status !== 'scheduled'
       || fixture.home_score != null

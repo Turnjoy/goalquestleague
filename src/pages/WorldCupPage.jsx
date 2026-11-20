@@ -392,10 +392,12 @@ function groupFixturesByMatchDay(fixtures) {
 
     for (const fixture of groupFixtures) {
       const pairKey = [fixture.home_country_id, fixture.away_country_id].sort().join(':');
-      const day = matchDayByPair.get(pairKey);
-      if (!day) continue;
+      const firstLegDay = matchDayByPair.get(pairKey);
+      if (!firstLegDay) continue;
+      const leg = Number(fixture.leg || 1);
+      const day = leg === 2 ? firstLegDay + participants.length : firstLegDay;
       const dayFixtures = matchDays.get(day) || [];
-      dayFixtures.push({ ...fixture, display_group_letter: letter });
+      dayFixtures.push({ ...fixture, display_group_letter: letter, display_leg: leg });
       matchDays.set(day, dayFixtures);
     }
   }
@@ -404,7 +406,7 @@ function groupFixturesByMatchDay(fixtures) {
     .sort(([left], [right]) => left - right)
     .map(([day, matches]) => ({
       key: `match-day-${day}`,
-      title: `Match Day ${day}`,
+      title: `${day <= 5 ? 'First Leg' : 'Second Leg'} · Match Day ${day <= 5 ? day : day - 5}`,
       matches: matches.sort((left, right) => left.display_group_letter.localeCompare(right.display_group_letter))
     }));
 
