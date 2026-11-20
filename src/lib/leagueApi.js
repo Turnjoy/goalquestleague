@@ -22,7 +22,8 @@ export async function fetchMyFixtures(userId) {
     .from('fixtures')
     .select('*')
     .or(fixtureFilters.join(','))
-    .order('fixture_date', { ascending: true });
+    .order('season_year', { ascending: false })
+    .order('matchweek', { ascending: true });
   if (error) throw error;
 
   return (data ?? []).map(fixture => {
@@ -211,7 +212,8 @@ export async function fetchAllFixtures(division = '', league = '') {
   let query = supabase
     .from('fixtures')
     .select('*')
-    .order('fixture_date', { ascending: true });
+    .order('season_year', { ascending: false })
+    .order('matchweek', { ascending: true });
   
   if (division) query = query.eq('division', division);
   if (league) query = query.eq('league_name', league);
@@ -292,7 +294,7 @@ export async function deductPlayerPoints(playerId, division, season, amount) {
   if (error) throw error;
 }
 
-export async function generateClubFixtures(leagueName, division, startDate, endDate, stopDate) {
+export async function generateClubFixtures(leagueName, division, seasonYear) {
   const divisionNames = getClubDivisionStorageNames(leagueName, division);
   const { data: existingClubs, error: lookupError } = await supabase
     .from('league_clubs')
@@ -302,12 +304,14 @@ export async function generateClubFixtures(leagueName, division, startDate, endD
     .limit(1);
   if (lookupError) throw lookupError;
   const storedDivision = existingClubs?.[0]?.division || division;
+  const startDate = `${seasonYear}-01-01`;
+  const endDate = `${seasonYear}-12-31`;
   const { data, error } = await supabase.rpc('admin_generate_club_fixtures', {
     p_league_name: leagueName,
     p_division: storedDivision,
     p_start_date: startDate,
     p_end_date: endDate,
-    p_stop_date: stopDate,
+    p_stop_date: endDate,
   });
   if (error) throw error;
   return data;
@@ -337,14 +341,6 @@ export async function awardClubTrophy(clubId, trophyName, season) {
   });
   if (error) throw error;
   return data;
-}
-
-export async function rescheduleFixture(fixtureId, newDate) {
-  const { error } = await supabase.rpc('admin_reschedule_fixture', {
-    fixture_id_input: fixtureId,
-    new_date_input: newDate,
-  });
-  if (error) throw error;
 }
 
 export async function getInternationalBreak(leagueName, division, seasonYear) {

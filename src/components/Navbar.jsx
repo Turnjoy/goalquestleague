@@ -14,6 +14,7 @@ const links = [
 ];
 
 const publicLinks = [
+  { to: '/cups', label: 'Cups' },
   { to: '/world-cup', label: 'World Cup' },
   { to: '/leaderboard', label: 'Leaderboard' },
   { to: '/rules', label: 'Rules' },

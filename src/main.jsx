@@ -18,6 +18,7 @@ import StandingsPage from './pages/StandingsPage.jsx';
 import WorldCupPage from './pages/WorldCupPage.jsx';
 import WorldCupAdminPage from './pages/WorldCupAdminPage.jsx';
 import CupManagementPage from './pages/CupManagementPage.jsx';
+import CupsPage from './pages/CupsPage.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import './styles/index.css';
 
@@ -33,6 +34,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="/leaderboard" element={<LeaderboardPage />} />
               <Route path="/rules" element={<RulesPage />} />
               <Route path="/world-cup" element={<WorldCupPage />} />
+              <Route path="/cups" element={<CupsPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />

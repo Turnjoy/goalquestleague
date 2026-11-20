@@ -1,4 +1,4 @@
-import { Ban, Calendar, Check, Clock, RotateCcw, Search, ShieldAlert, Trophy, UserX, Zap, Crown, Flame, Skull, Sparkles, CalendarDays, Globe, Award } from 'lucide-react';
+import { Ban, Calendar, Check, Clock, Search, ShieldAlert, Trophy, UserX, Zap, Crown, Flame, Skull, Sparkles, CalendarDays, Globe, Award } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Badge from '../components/Badge.jsx';
@@ -15,7 +15,6 @@ import {
   resolveDispute,
   updatePlayerApproval,
   updatePlayerStatus,
-  rescheduleFixture,
   permanentBanPlayer,
   liftBan,
   fetchBannedUsers,
@@ -170,11 +169,7 @@ function AdminContent() {
   const [selectedFixtureLeague, setSelectedFixtureLeague] = useState(LEAGUES[0].name);
   const [clubSeasonYear, setClubSeasonYear] = useState(String(new Date().getFullYear()));
   const [activeTab, setActiveTab] = useState('fixtures');
-  const [fixtureStartDate, setFixtureStartDate] = useState('');
-  const [fixtureEndDate, setFixtureEndDate] = useState('');
-  const [fixtureStopDate, setFixtureStopDate] = useState('');
   const [generatingFixtures, setGeneratingFixtures] = useState(false);
-  const [rescheduleModal, setRescheduleModal] = useState({ open: false, fixtureId: null, newDate: '' });
   const [banModal, setBanModal] = useState({ open: false, playerId: null, reason: '', notes: '' });
   const [reinstateModal, setReinstateModal] = useState({ open: false, playerId: null, newDivision: UNASSIGNED_DIVISION });
   const [seasonStartDate, setSeasonStartDate] = useState('');
@@ -354,20 +349,9 @@ function AdminContent() {
   }
 
   async function handleGenerateFixtures() {
-    if (!fixtureStartDate || !fixtureEndDate || !fixtureStopDate) {
-      setMessage('Please select season start date, end date, and stop deadline.');
-      return;
-    }
-    if (fixtureEndDate < fixtureStartDate) {
-      setMessage('The fixture end date must be on or after the start date.');
-      return;
-    }
-    if (fixtureStopDate < fixtureEndDate) {
-      setMessage('The stop deadline must be after the season end date.');
-      return;
-    }
-    if (Number(fixtureStartDate.slice(0, 4)) !== Number(clubSeasonYear)) {
-      setMessage('The selected club assignment season must match the fixture start year.');
+    const seasonYear = Number(clubSeasonYear);
+    if (!Number.isInteger(seasonYear) || seasonYear < 2000 || seasonYear > 2200) {
+      setMessage('Enter a valid season year between 2000 and 2200.');
       return;
     }
 
@@ -376,27 +360,14 @@ function AdminContent() {
       const result = await generateClubFixtures(
         selectedFixtureLeague,
         selectedDivision,
-        fixtureStartDate,
-        fixtureEndDate,
-        fixtureStopDate,
+        seasonYear,
       );
-      setMessage(`Generated ${result.fixtures_generated} fixtures for ${result.league} ${result.division} clubs (${result.season_year}). Season deadline set to ${fixtureStopDate}.`);
+      setMessage(`Generated ${result.fixtures_generated} fixtures for ${result.league} ${result.division} clubs (${result.season_year}), ordered by matchweek.`);
       await loadAllFixtures();
     } catch (error) {
       setMessage(error.message);
     } finally {
       setGeneratingFixtures(false);
-    }
-  }
-
-  async function handleRescheduleFixture() {
-    try {
-      await rescheduleFixture(rescheduleModal.fixtureId, new Date(rescheduleModal.newDate).toISOString());
-      setMessage('Fixture rescheduled successfully.');
-      setRescheduleModal({ open: false, fixtureId: null, newDate: '' });
-      await loadAllFixtures();
-    } catch (error) {
-      setMessage(error.message);
     }
   }
 
@@ -498,7 +469,7 @@ function AdminContent() {
             <div>
               <p className="font-bold text-slate-900 dark:text-white">Admin-only: International Break</p>
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                While on, pending fixture dates and the season deadline move forward daily.
+                Toggle the break separately; fixtures remain organized by matchweek.
               </p>
               {internationalBreakStatus && (
                 <p className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
@@ -555,49 +526,28 @@ function AdminContent() {
               </StyledSelect>
             </div>
             <div className="flex items-center gap-3">
-              <label htmlFor="fixture-start-date" className="text-sm font-bold text-slate-700 dark:text-slate-300">Start Date:</label>
+              <label htmlFor="fixture-season-year" className="text-sm font-bold text-slate-700 dark:text-slate-300">Season Year:</label>
               <StyledInput
-                id="fixture-start-date"
-                type="date"
-                value={fixtureStartDate}
-                onChange={(event) => {
-                  const startDate = event.target.value;
-                  setFixtureStartDate(startDate);
-                  if (startDate) setClubSeasonYear(startDate.slice(0, 4));
-                }}
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <label htmlFor="fixture-end-date" className="text-sm font-bold text-slate-700 dark:text-slate-300">End Date:</label>
-              <StyledInput
-                id="fixture-end-date"
-                type="date"
-                value={fixtureEndDate}
-                min={fixtureStartDate || undefined}
-                onChange={(event) => setFixtureEndDate(event.target.value)}
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <label htmlFor="fixture-stop-date" className="text-sm font-bold text-slate-700 dark:text-slate-300">Stop Deadline:</label>
-              <StyledInput
-                id="fixture-stop-date"
-                type="date"
-                value={fixtureStopDate}
-                min={fixtureEndDate || fixtureStartDate || undefined}
-                onChange={(event) => setFixtureStopDate(event.target.value)}
+                id="fixture-season-year"
+                type="number"
+                min="2000"
+                max="2200"
+                step="1"
+                value={clubSeasonYear}
+                onChange={(event) => setClubSeasonYear(event.target.value)}
               />
             </div>
             <GradientButton
               variant="primary"
               onClick={handleGenerateFixtures}
-              disabled={generatingFixtures || !fixtureStartDate || !fixtureEndDate || !fixtureStopDate}
+              disabled={generatingFixtures || !clubSeasonYear}
             >
               <Trophy className="h-4 w-4" />
               {generatingFixtures ? 'Generating Fixtures...' : 'Generate Round-Robin Fixtures'}
             </GradientButton>
           </div>
           <p className="mt-3 text-xs text-slate-600 dark:text-slate-400">
-            Matchweeks are generated for the assigned clubs. Assign all 20 clubs for the selected league, division, and season first.
+            Fixture dates are automatic; matchweeks are the schedule players use. Assign all 20 clubs for the selected league, division, and season first.
           </p>
         </GlassCard>
       )}
@@ -763,7 +713,7 @@ function AdminContent() {
                     <table className="w-full min-w-[800px]">
                       <thead>
                         <tr className="border-b border-slate-200 dark:border-slate-700">
-                          {['Division', 'Matchup', 'Date/Time', 'Score', 'Status', 'Actions'].map((head) => (
+                          {['Division', 'Matchup', 'Score', 'Status', 'Actions'].map((head) => (
                             <th key={head} className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider">
                               {head}
                             </th>
@@ -781,11 +731,6 @@ function AdminContent() {
                               <p className="text-xs text-slate-500 dark:text-slate-400">vs {fixture.away_team}</p>
                             </td>
                             <td className="px-4 py-4">
-                              <span className="text-sm text-slate-700 dark:text-slate-300">
-                                {fixture.fixture_date ? new Date(fixture.fixture_date).toLocaleString() : 'Not scheduled'}
-                              </span>
-                            </td>
-                            <td className="px-4 py-4">
                               {fixture.home_score !== null && fixture.away_score !== null ? (
                                 <span className="font-black text-pitch">
                                   {fixture.home_score} - {fixture.away_score}
@@ -799,14 +744,6 @@ function AdminContent() {
                             </td>
                             <td className="px-4 py-4">
                               <div className="flex gap-2">
-                                <GradientButton
-                                  variant="info"
-                                  onClick={() => setRescheduleModal({ open: true, fixtureId: fixture.id, newDate: fixture.fixture_date ? new Date(fixture.fixture_date).toISOString().slice(0, 16) : '' })}
-                                  className="text-xs"
-                                >
-                                  <RotateCcw className="h-3 w-3" />
-                                  Reschedule
-                                </GradientButton>
                                 <GradientButton
                                   variant="success"
                                   onClick={() => setScoreSubmissionModal({ open: true, fixtureId: fixture.id, homeScore: fixture.home_score || '', awayScore: fixture.away_score || '', notes: '' })}
@@ -1356,49 +1293,6 @@ function AdminContent() {
             </div>
           )}
         </GlassCard>
-      )}
-
-      {/* Reschedule Modal */}
-      {rescheduleModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 backdrop-blur-sm">
-          <GlassCard className="w-full max-w-md">
-            <div className="mb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl">
-                  <Calendar className="h-5 w-5 text-white" />
-                </div>
-                <h3 className="text-xl font-black bg-gradient-to-r from-blue-600 to-cyan-600 dark:from-blue-400 dark:to-cyan-400 bg-clip-text text-transparent">
-                  Reschedule Fixture
-                </h3>
-              </div>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Select a new date and time for this fixture</p>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">New Date & Time</label>
-                <StyledInput
-                  type="datetime-local"
-                  value={rescheduleModal.newDate}
-                  onChange={(e) => setRescheduleModal({ ...rescheduleModal, newDate: e.target.value })}
-                  className="w-full"
-                />
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setRescheduleModal({ open: false, fixtureId: null, newDate: '' })}
-                className="px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-              <GradientButton variant="info" onClick={handleRescheduleFixture}>
-                <Check className="h-4 w-4" />
-                Confirm Reschedule
-              </GradientButton>
-            </div>
-          </GlassCard>
-        </div>
       )}
 
       {/* Score Submission Modal */}

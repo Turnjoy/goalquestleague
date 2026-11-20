@@ -100,9 +100,6 @@ export default function FixtureCard({ fixture, userId, onConfirmScore, onDispute
           <h3 className="mt-1 text-lg font-black text-slate-900 dark:text-white">
             {fixture.home_team} vs {fixture.away_team}
           </h3>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-            {fixture.fixture_date ? new Date(fixture.fixture_date).toLocaleString() : 'Date pending'}
-          </p>
         </div>
         <Badge tone={fixture.status}>{fixture.status}</Badge>
       </div>
