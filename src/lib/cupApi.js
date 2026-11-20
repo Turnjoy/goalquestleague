@@ -369,7 +369,11 @@ export async function generateDraftPreview(configId) {
   } else {
     // Generate knockout preview
     bracketPreview = generateKnockoutBracketPreview(participants, config.knockout_format);
-    fixturePreview = generateKnockoutFixturePreview(participants, config.knockout_format);
+    fixturePreview = generateKnockoutFixturePreview(
+      participants,
+      config.knockout_format,
+      config.final_format,
+    );
   }
 
   return {
@@ -441,7 +445,7 @@ function generateKnockoutBracketPreview(participants, format) {
   return bracket;
 }
 
-function generateKnockoutFixturePreview(participants, format) {
+function generateKnockoutFixturePreview(participants, knockoutFormat, finalFormat) {
   const fixtures = [];
   const teams = participants.map(p => p.club_id);
   
@@ -451,6 +455,7 @@ function generateKnockoutFixturePreview(participants, format) {
   
   while (currentRound.length > 1) {
     const matchesInRound = Math.ceil(currentRound.length / 2);
+    const roundFormat = currentRound.length <= 2 ? finalFormat : knockoutFormat;
     for (let i = 0; i < matchesInRound; i++) {
       const homeTeam = currentRound[i * 2];
       const awayTeam = currentRound[i * 2 + 1];
@@ -461,8 +466,22 @@ function generateKnockoutFixturePreview(participants, format) {
           round: roundNumber,
           home: homeTeam,
           away: awayTeam,
-          format
+          format: roundFormat,
+          leg: 1,
+          legLabel: roundFormat === 'two_legged' ? 'First Leg' : 'Single Match'
         });
+
+        if (roundFormat === 'two_legged') {
+          fixtures.push({
+            type: 'knockout',
+            round: roundNumber,
+            home: awayTeam,
+            away: homeTeam,
+            format: roundFormat,
+            leg: 2,
+            legLabel: 'Second Leg'
+          });
+        }
       }
     }
     

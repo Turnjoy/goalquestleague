@@ -647,7 +647,7 @@ function DraftPreviewModal({ preview, config, onClose, onActivate }) {
                   <div key={index} className="flex items-center justify-between text-sm p-2 bg-white dark:bg-slate-800 rounded">
                     <span className="text-slate-600 dark:text-slate-400">Match {index + 1}</span>
                     <span className="text-slate-900 dark:text-white">
-                      {fixture.type} {fixture.format}
+                      {fixture.round ? `Round ${fixture.round} · ` : ''}{fixture.legLabel || fixture.format?.replaceAll('_', ' ')}
                     </span>
                   </div>
                 ))}

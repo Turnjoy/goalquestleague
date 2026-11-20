@@ -75,7 +75,9 @@ export default function CupsPage() {
 
   const selectedCup = configs.find((config) => config.id === selectedId);
   const groupedFixtures = useMemo(() => fixtures.reduce((groups, fixture) => {
-    const key = fixture.round_name || 'Fixtures';
+    const round = fixture.round_name || 'Fixtures';
+    const leg = fixture.is_first_leg ? 'First Leg' : fixture.is_second_leg ? 'Second Leg' : '';
+    const key = leg ? `${round} · ${leg}` : round;
     groups[key] ||= [];
     groups[key].push(fixture);
     return groups;
@@ -204,11 +206,16 @@ function Summary({ icon: Icon, label, value }) {
 }
 
 function CupFixture({ fixture }) {
+  const legLabel = fixture.is_first_leg ? 'First Leg' : fixture.is_second_leg ? 'Second Leg' : null;
+
   return <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
     <span className="font-semibold text-slate-900 dark:text-white">{fixture.home_club?.club_name || 'TBD'}</span>
     <span className="rounded-lg bg-slate-100 px-3 py-1 font-black text-slate-800 dark:bg-slate-800 dark:text-white">{fixture.home_score ?? '-'} : {fixture.away_score ?? '-'}</span>
     <span className="font-semibold text-slate-900 dark:text-white">{fixture.away_club?.club_name || 'TBD'}</span>
-    <span className="text-xs capitalize text-slate-500 dark:text-slate-400">{fixture.status?.replaceAll('_', ' ')}</span>
+    <span className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+      {legLabel && <span className="rounded-full bg-indigo-50 px-2 py-1 font-bold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">{legLabel}</span>}
+      <span className="capitalize">{fixture.status?.replaceAll('_', ' ')}</span>
+    </span>
   </div>;
 }
 
