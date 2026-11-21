@@ -32,6 +32,7 @@ import {
   generateGroupFixtures,
   getFixtures,
   submitFixtureResult,
+  resetFixtureResult,
   getGroupStandings,
   getAllGroupStandings,
   updateTournamentStatus,
@@ -790,6 +791,15 @@ function FixturesTab({ tournament, onRefresh }) {
     }
   }
 
+  async function handleResetResult(fixtureId) {
+    if (!window.confirm('Clear this result and return the fixture to scheduled?')) return;
+    try {
+      await resetFixtureResult(fixtureId);
+      await loadFixtures();
+      onRefresh();
+    } catch (err) { alert(`Failed to reset result: ${err.message}`); }
+  }
+
   return (
     <div className="space-y-6">
       {/* Controls */}
@@ -874,6 +884,7 @@ function FixturesTab({ tournament, onRefresh }) {
                 key={fixture.id} 
                 fixture={fixture} 
                 onSubmitResult={handleSubmitResult}
+                onResetResult={handleResetResult}
               />
             ))
           )}
@@ -1052,7 +1063,7 @@ function DetailItem({ label, value }) {
   );
 }
 
-function FixtureRow({ fixture, onSubmitResult }) {
+function FixtureRow({ fixture, onSubmitResult, onResetResult }) {
   const [editing, setEditing] = useState(false);
   const [homeScore, setHomeScore] = useState(fixture.home_score ?? '');
   const [awayScore, setAwayScore] = useState(fixture.away_score ?? '');
@@ -1138,6 +1149,8 @@ function FixtureRow({ fixture, onSubmitResult }) {
                   <Edit className="h-4 w-4" />
                 </button>
               )}
+              {fixture.status !== 'scheduled' && <button onClick={() => setEditing(true)} aria-label="Edit match score" className="flex h-10 w-10 items-center justify-center rounded text-indigo-600 hover:bg-indigo-50"><Edit className="h-4 w-4" /></button>}
+              {fixture.status === 'completed' && <button onClick={() => onResetResult(fixture.id)} className="ml-1 text-xs text-red-600">Reset</button>}
             </>
           )}
         </div>

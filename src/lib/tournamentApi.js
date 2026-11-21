@@ -289,6 +289,14 @@ export async function submitFixtureResult(fixtureId, homeScore, awayScore) {
   if (error) throw error;
 }
 
+export async function resetFixtureResult(fixtureId) {
+  const { error } = await supabase.from('world_cup_fixtures').update({
+    home_score: null, away_score: null, home_penalty_shootout: null, away_penalty_shootout: null,
+    status: 'scheduled', played_at: null, submitted_by: null, submitted_at: null
+  }).eq('id', fixtureId);
+  if (error) throw error;
+}
+
 export async function updateFixtureDate(fixtureId, fixtureDate) {
   const { error } = await supabase
     .from('world_cup_fixtures')

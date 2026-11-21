@@ -22,6 +22,7 @@ import {
   updatePlayerLeague,
   generateClubFixtures,
   adminSubmitScore,
+  adminResetFixture,
   getInternationalBreak,
   syncInternationalBreak,
 } from '../lib/leagueApi.js';
@@ -750,8 +751,9 @@ function AdminContent() {
                                   className="text-xs"
                                 >
                                   <Check className="h-3 w-3" />
-                                  Submit Score
+                                  {fixture.home_score !== null && fixture.away_score !== null ? 'Edit Score' : 'Submit Score'}
                                 </GradientButton>
+                                {fixture.home_score !== null && fixture.away_score !== null && <button className="text-xs font-bold text-red-600" onClick={async () => { if (!window.confirm('Clear this score and return fixture to unplayed?')) return; try { await adminResetFixture(fixture.id); setAllFixtures(await fetchAllFixtures(fixtureDivisionFilter, fixtureLeagueFilter)); } catch (error) { alert(error.message); } }}>Reset to unplayed</button>}
                               </div>
                             </td>
                           </tr>

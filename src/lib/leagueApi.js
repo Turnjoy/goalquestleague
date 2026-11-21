@@ -207,6 +207,11 @@ export async function adminSubmitScore(fixtureId, homeScore, awayScore, adminNot
   }
 }
 
+export async function adminResetFixture(fixtureId) {
+  const { error } = await supabase.rpc('admin_reset_fixture_result', { fixture_id_input: fixtureId });
+  if (error) throw error;
+}
+
 // Fetch all fixtures for admin viewing
 export async function fetchAllFixtures(division = '', league = '') {
   let query = supabase

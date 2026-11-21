@@ -30,6 +30,8 @@ import {
   assignParticipantGroups,
   generateCupGroupFixtures,
   getCupFixtures,
+  submitCupFixtureResult,
+  resetCupFixtureResult,
   generateDraftPreview,
   activateCupConfiguration,
   updateCupStatus
@@ -61,6 +63,32 @@ function getStatusBadge(status) {
   );
 }
 
+function ManagedCupFixture({ fixture, onRefresh }) {
+  const [home, setHome] = useState(fixture.home_score ?? '');
+  const [away, setAway] = useState(fixture.away_score ?? '');
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    if (home === '' || away === '' || Number(home) < 0 || Number(away) < 0) return alert('Enter valid scores for both clubs.');
+    setBusy(true);
+    try { await submitCupFixtureResult(fixture.id, Number(home), Number(away)); await onRefresh(); }
+    catch (error) { alert(error.message); } finally { setBusy(false); }
+  }
+  async function reset() {
+    if (!window.confirm('Clear this score and return this cup fixture to scheduled?')) return;
+    setBusy(true);
+    try { await resetCupFixtureResult(fixture.id); setHome(''); setAway(''); await onRefresh(); }
+    catch (error) { alert(error.message); } finally { setBusy(false); }
+  }
+  return <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 py-3 dark:border-slate-700">
+    <span className="min-w-48 flex-1 text-sm font-semibold text-slate-800 dark:text-slate-200">{fixture.home_club?.club_name || 'Club'} vs {fixture.away_club?.club_name || 'Club'} <span className="font-normal text-slate-500">({fixture.round_name})</span></span>
+    <input aria-label="Home score" type="number" min="0" value={home} onChange={(e) => setHome(e.target.value)} className="w-16 rounded border p-2 dark:bg-slate-900" />
+    <span>–</span>
+    <input aria-label="Away score" type="number" min="0" value={away} onChange={(e) => setAway(e.target.value)} className="w-16 rounded border p-2 dark:bg-slate-900" />
+    <button disabled={busy} onClick={save} className="rounded bg-indigo-600 px-3 py-2 text-sm font-bold text-white">{fixture.status === 'completed' ? 'Save correction' : 'Submit score'}</button>
+    {fixture.status === 'completed' && <button disabled={busy} onClick={reset} className="rounded border border-red-300 px-3 py-2 text-sm font-bold text-red-600">Reset to unplayed</button>}
+  </div>;
+}
+
 function CupManagementContent() {
   const navigate = useNavigate();
   const [competitions, setCompetitions] = useState([]);
@@ -71,6 +99,7 @@ function CupManagementContent() {
   const [draftPreview, setDraftPreview] = useState(null);
   const [currentConfig, setCurrentConfig] = useState(null);
   const [error, setError] = useState('');
+  const [activeFixtures, setActiveFixtures] = useState([]);
 
   useEffect(() => {
     loadCompetitions();
@@ -83,6 +112,11 @@ function CupManagementContent() {
       await seedSystemCupCompetitions();
       const competitionsData = await getAllCupCompetitions();
       setCompetitions(competitionsData);
+      const activeConfigs = await Promise.all(competitionsData.map((competition) =>
+        getCupConfigurations(competition.id, new Date().getFullYear()).catch(() => [])
+      )).then((lists) => lists.flat().filter((config) => config.status === 'active'));
+      const fixtureLists = await Promise.all(activeConfigs.map((config) => getCupFixtures(config.id)));
+      setActiveFixtures(fixtureLists.flat());
     } catch (err) {
       setError(err?.message || 'Could not load cup competitions.');
     } finally {
@@ -200,6 +234,12 @@ function CupManagementContent() {
               />
             ))}
           </div>
+
+          <section className="mt-10 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
+            <h2 className="mb-4 text-xl font-bold text-slate-900 dark:text-white">Fixture Scores</h2>
+            {activeFixtures.map((fixture) => <ManagedCupFixture key={fixture.id} fixture={fixture} onRefresh={loadCompetitions} />)}
+            {!activeFixtures.length && <p className="text-sm text-slate-500">No fixtures in active cup configurations.</p>}
+          </section>
         </div>
 
         {/* Setup Modal */}

@@ -217,6 +217,15 @@ export async function submitCupFixtureResult(fixtureId, homeScore, awayScore, ex
   if (error) throw error;
 }
 
+export async function resetCupFixtureResult(fixtureId) {
+  const { error } = await supabase.from('cup_fixtures').update({
+    home_score: null, away_score: null, home_extra_time_score: null, away_extra_time_score: null,
+    home_penalty_shootout: null, away_penalty_shootout: null, aggregate_home_score: null,
+    aggregate_away_score: null, status: 'scheduled', played_at: null, submitted_by: null, submitted_at: null
+  }).eq('id', fixtureId);
+  if (error) throw error;
+}
+
 // Standings Functions
 
 export async function getCupStandings(configId, groupLetter = null) {
